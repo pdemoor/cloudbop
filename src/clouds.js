@@ -14,15 +14,16 @@ function shadeColour(hslStr, percent) {
   return `hsl(${h}, ${s}%, ${newL}%)`
 }
 
-// Draw a single cloud blob with a radial gradient for a 3D lit look
+// Draw a single cloud blob — soft diffuse highlight, not balloon-shiny
 function drawCloudBlob(ctx, bx, by, br, colour) {
   const gradient = ctx.createRadialGradient(
-    bx - br * 0.3, by - br * 0.35, br * 0.05,  // highlight (top-left)
-    bx, by, br                                   // outer edge
+    bx - br * 0.20, by - br * 0.25, br * 0.15,  // smaller, softer inner
+    bx + br * 0.05, by + br * 0.10, br * 1.05   // slightly off-centre outer
   )
-  gradient.addColorStop(0,   'rgba(255, 255, 255, 0.98)')
-  gradient.addColorStop(0.5, colour)
-  gradient.addColorStop(1,   shadeColour(colour, -10))
+  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.82)')
+  gradient.addColorStop(0.38, colour)
+  gradient.addColorStop(0.78, shadeColour(colour, -6))
+  gradient.addColorStop(1,    shadeColour(colour, -14))
 
   ctx.beginPath()
   ctx.arc(bx, by, br, 0, Math.PI * 2)
@@ -30,29 +31,29 @@ function drawCloudBlob(ctx, bx, by, br, colour) {
   ctx.fill()
 }
 
-// Wide cloud silhouette: flat-ish base, 3 bumpy humps on top
+// Wide flat cloud: ~2.2× wider than tall, irregular bumps on top
 function getCloudBlobs(cx, cy, r) {
   return [
-    // Bottom row — flat base
-    { x: cx - r * 0.85, y: cy + r * 0.25, r: r * 0.62 },
-    { x: cx,            y: cy + r * 0.28, r: r * 0.68 },
-    { x: cx + r * 0.85, y: cy + r * 0.25, r: r * 0.62 },
-    // Top row — bumps
-    { x: cx - r * 0.72, y: cy - r * 0.12, r: r * 0.58 },
-    { x: cx,            y: cy - r * 0.32, r: r * 0.72 }, // tallest centre bump
-    { x: cx + r * 0.68, y: cy - r * 0.08, r: r * 0.54 },
+    // Base layer — wide flat underbelly
+    { x: cx - r * 1.10, y: cy + r * 0.30, r: r * 0.55 },
+    { x: cx - r * 0.45, y: cy + r * 0.38, r: r * 0.65 },
+    { x: cx + r * 0.30, y: cy + r * 0.38, r: r * 0.65 },
+    { x: cx + r * 1.05, y: cy + r * 0.30, r: r * 0.55 },
+    // Mid layer — bridges base to bumps
+    { x: cx - r * 0.80, y: cy + r * 0.05, r: r * 0.58 },
+    { x: cx + r * 0.75, y: cy + r * 0.05, r: r * 0.55 },
+    // Top bumps — irregular heights
+    { x: cx - r * 0.88, y: cy - r * 0.22, r: r * 0.48 },
+    { x: cx - r * 0.15, y: cy - r * 0.42, r: r * 0.62 }, // tallest
+    { x: cx + r * 0.65, y: cy - r * 0.28, r: r * 0.50 },
   ]
 }
 
 function sizeConfig() {
-  const r = Math.random()
-  if (r < 0.25) {
-    return { radius: 28 + Math.random() * 10, points: 2 }
-  } else if (r < 0.75) {
-    return { radius: 45 + Math.random() * 15, points: 1 }
-  } else {
-    return { radius: 65 + Math.random() * 15, points: 1 }
-  }
+  const roll = Math.random()
+  if (roll < 0.25) return { radius: 25 + Math.random() * 10, points: 2 } // small
+  if (roll < 0.75) return { radius: 38 + Math.random() * 16, points: 1 } // medium
+  return                  { radius: 55 + Math.random() * 16, points: 1 } // large
 }
 
 export function makeCloud(canvasWidth, canvasHeight, spreadX = true, topMargin = 0, bottomMargin = 0) {
@@ -88,34 +89,38 @@ function drawCloud(ctx, cloud) {
   const { x, y, radius, colour } = cloud
   const blobs = getCloudBlobs(x, y, radius)
 
-  // Drop shadow on bottom row to ground the cloud
-  ctx.shadowColor   = 'rgba(100, 120, 160, 0.25)'
-  ctx.shadowBlur    = 16
-  ctx.shadowOffsetX = 3
+  // Shadow on base layer only
+  ctx.shadowColor   = 'rgba(80, 100, 150, 0.22)'
+  ctx.shadowBlur    = 14
+  ctx.shadowOffsetX = 2
   ctx.shadowOffsetY = 5
 
-  // Bottom row first (flat base, indices 0–2)
-  blobs.slice(0, 3).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+  // Base layer (indices 0–3)
+  blobs.slice(0, 4).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Reset shadow so top bumps don't double-shadow
+  // Reset shadow before mid + top layers
   ctx.shadowColor   = 'transparent'
   ctx.shadowBlur    = 0
   ctx.shadowOffsetX = 0
   ctx.shadowOffsetY = 0
 
-  // Top bumps on top (indices 3–5)
-  blobs.slice(3).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+  // Mid layer (indices 4–5)
+  blobs.slice(4, 6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Subtle anchor shadow at the base
+  // Top bumps (indices 6–8)
+  blobs.slice(6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+
+  // Subtle underside shadow to flatten the bottom
   const anchorGrad = ctx.createRadialGradient(
-    x, y + radius * 0.5, radius * 0.1,
-    x, y + radius * 0.5, radius * 1.0
+    x, y + radius * 0.55, 0,
+    x, y + radius * 0.55, radius * 1.15
   )
-  anchorGrad.addColorStop(0, 'rgba(80, 100, 160, 0.10)')
-  anchorGrad.addColorStop(1, 'rgba(80, 100, 160, 0.0)')
+  anchorGrad.addColorStop(0,   'rgba(70, 90, 140, 0.12)')
+  anchorGrad.addColorStop(0.6, 'rgba(70, 90, 140, 0.05)')
+  anchorGrad.addColorStop(1,   'rgba(70, 90, 140, 0.0)')
 
   ctx.beginPath()
-  ctx.ellipse(x, y + radius * 0.45, radius * 1.05, radius * 0.38, 0, 0, Math.PI)
+  ctx.ellipse(x, y + radius * 0.42, radius * 1.18, radius * 0.35, 0, 0, Math.PI)
   ctx.fillStyle = anchorGrad
   ctx.fill()
 }
@@ -285,5 +290,5 @@ export function hitTest(cloud, px, py) {
   if (cloud.state !== 'alive') return false
   const dx = cloud.x - px
   const dy = cloud.y - py
-  return Math.sqrt(dx * dx + dy * dy) < cloud.radius * 1.5
+  return Math.sqrt(dx * dx + dy * dy) < cloud.radius * 1.6
 }
