@@ -164,38 +164,27 @@ html, body, #root {
   position: fixed;
   bottom: 32px;
   right: 16px;
-  background: rgba(255,255,255,0.25);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #1AADDF;
   border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  font-size: 1.1rem;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
   cursor: pointer;
   touch-action: manipulation;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.1s ease, background 0.15s ease;
 }
 
-.mute-icon {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+#mute-btn:active {
+  transform: scale(0.92);
 }
 
-.mute-cross {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.4rem;
-  font-weight: 900;
-  color: #FF3B30;
-  line-height: 1;
-  pointer-events: none;
-  text-shadow: 0 0 3px white;
+#mute-btn.muted {
+  background: #888;
 }
 
 /* ── Logo overlay ── */
@@ -238,12 +227,15 @@ html, body, #root {
 #daily-best {
   position: fixed;
   top: 118px;
-  left: 12px;
+  left: 0;
+  width: 120px;
+  text-align: center;
   font-size: 0.72rem;
   font-weight: 700;
+  font-family: Arial, Helvetica, sans-serif;
   color: white;
   text-shadow: 0 1px 4px rgba(0,0,0,0.4);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   pointer-events: none;
   z-index: 10;
 }
@@ -546,7 +538,7 @@ html, body, #root {
 
 #initials-input {
   width: 120px;
-  font-size: 2.4rem;
+  font-size: 1.6rem;
   font-weight: 900;
   text-align: center;
   letter-spacing: 0.2em;

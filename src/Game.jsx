@@ -574,13 +574,31 @@ export default function Game() {
       {/* Mute button — bottom-right */}
       <button
         id="mute-btn"
+        className={muted ? 'muted' : ''}
         onClick={() => { const nowMuted = toggleMute(); setMuted(nowMuted) }}
         aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        <span className="mute-icon">
-          🔊
-          {muted && <span className="mute-cross">✕</span>}
-        </span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="white"
+          width="22"
+          height="22"
+        >
+          {muted ? (
+            <>
+              <path d="M13 3.17v17.66a1 1 0 01-1.7.7L6.59 17H4a1 1 0 01-1-1V8a1 1 0 011-1h2.59l4.71-4.53A1 1 0 0113 3.17z"/>
+              <line x1="18" y1="9" x2="23" y2="14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="23" y1="9" x2="18" y2="14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+            </>
+          ) : (
+            <>
+              <path d="M13 3.17v17.66a1 1 0 01-1.7.7L6.59 17H4a1 1 0 01-1-1V8a1 1 0 011-1h2.59l4.71-4.53A1 1 0 0113 3.17z"/>
+              <path d="M16 9a5 5 0 010 6" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none"/>
+              <path d="M19.07 6.93a9 9 0 010 10.14" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none"/>
+            </>
+          )}
+        </svg>
       </button>
 
       {/* Daily Comp button */}

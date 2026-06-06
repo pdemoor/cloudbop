@@ -12,7 +12,7 @@ export function drawScore(ctx, score, highScore, canvasWidth) {
   ctx.fillText(`Score: ${score}`, canvasWidth - 20, 36)
 
   ctx.font = '1rem system-ui'
-  ctx.fillText(`Best: ${highScore}`, canvasWidth - 20, 58)
+  ctx.fillText(`PB: ${highScore}`, canvasWidth - 20, 58)
 
   const trophyCount = getTrophyCount(score)
   if (trophyCount > 0) {
