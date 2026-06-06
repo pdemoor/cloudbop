@@ -14,16 +14,15 @@ function shadeColour(hslStr, percent) {
   return `hsl(${h}, ${s}%, ${newL}%)`
 }
 
-// Draw a single cloud blob — soft diffuse highlight, not balloon-shiny
+// Draw a single cloud blob — muted highlight so blobs merge visually
 function drawCloudBlob(ctx, bx, by, br, colour) {
   const gradient = ctx.createRadialGradient(
-    bx - br * 0.20, by - br * 0.25, br * 0.15,  // smaller, softer inner
-    bx + br * 0.05, by + br * 0.10, br * 1.05   // slightly off-centre outer
+    bx - br * 0.15, by - br * 0.20, br * 0.25, // larger inner radius = softer
+    bx, by, br
   )
-  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.82)')
-  gradient.addColorStop(0.38, colour)
-  gradient.addColorStop(0.78, shadeColour(colour, -6))
-  gradient.addColorStop(1,    shadeColour(colour, -14))
+  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.55)')
+  gradient.addColorStop(0.50, colour)
+  gradient.addColorStop(1,    shadeColour(colour, -8))
 
   ctx.beginPath()
   ctx.arc(bx, by, br, 0, Math.PI * 2)
@@ -31,21 +30,21 @@ function drawCloudBlob(ctx, bx, by, br, colour) {
   ctx.fill()
 }
 
-// Wide flat cloud: ~2.2× wider than tall, irregular bumps on top
+// Wide flat cloud — tighter blob spacing for merged unified silhouette
 function getCloudBlobs(cx, cy, r) {
   return [
-    // Base layer — wide flat underbelly
-    { x: cx - r * 1.10, y: cy + r * 0.30, r: r * 0.55 },
-    { x: cx - r * 0.45, y: cy + r * 0.38, r: r * 0.65 },
-    { x: cx + r * 0.30, y: cy + r * 0.38, r: r * 0.65 },
-    { x: cx + r * 1.05, y: cy + r * 0.30, r: r * 0.55 },
-    // Mid layer — bridges base to bumps
-    { x: cx - r * 0.80, y: cy + r * 0.05, r: r * 0.58 },
-    { x: cx + r * 0.75, y: cy + r * 0.05, r: r * 0.55 },
-    // Top bumps — irregular heights
-    { x: cx - r * 0.88, y: cy - r * 0.22, r: r * 0.48 },
-    { x: cx - r * 0.15, y: cy - r * 0.42, r: r * 0.62 }, // tallest
-    { x: cx + r * 0.65, y: cy - r * 0.28, r: r * 0.50 },
+    // Base layer — tighter spacing
+    { x: cx - r * 0.90, y: cy + r * 0.28, r: r * 0.58 },
+    { x: cx - r * 0.30, y: cy + r * 0.35, r: r * 0.66 },
+    { x: cx + r * 0.30, y: cy + r * 0.35, r: r * 0.66 },
+    { x: cx + r * 0.88, y: cy + r * 0.28, r: r * 0.56 },
+    // Mid layer
+    { x: cx - r * 0.68, y: cy + r * 0.02, r: r * 0.60 },
+    { x: cx + r * 0.62, y: cy + r * 0.02, r: r * 0.57 },
+    // Top bumps — irregular, closer together
+    { x: cx - r * 0.72, y: cy - r * 0.20, r: r * 0.50 },
+    { x: cx - r * 0.05, y: cy - r * 0.38, r: r * 0.64 }, // tallest
+    { x: cx + r * 0.58, y: cy - r * 0.24, r: r * 0.52 },
   ]
 }
 
@@ -89,20 +88,10 @@ function drawCloud(ctx, cloud) {
   const { x, y, radius, colour } = cloud
   const blobs = getCloudBlobs(x, y, radius)
 
-  // Shadow on base layer only
-  ctx.shadowColor   = 'rgba(80, 100, 150, 0.22)'
-  ctx.shadowBlur    = 14
-  ctx.shadowOffsetX = 2
-  ctx.shadowOffsetY = 5
+  // No canvas shadow — avoids dark blobs beneath clouds
 
   // Base layer (indices 0–3)
   blobs.slice(0, 4).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
-
-  // Reset shadow before mid + top layers
-  ctx.shadowColor   = 'transparent'
-  ctx.shadowBlur    = 0
-  ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = 0
 
   // Mid layer (indices 4–5)
   blobs.slice(4, 6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
@@ -110,18 +99,18 @@ function drawCloud(ctx, cloud) {
   // Top bumps (indices 6–8)
   blobs.slice(6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Subtle underside shadow to flatten the bottom
-  const anchorGrad = ctx.createRadialGradient(
-    x, y + radius * 0.55, 0,
-    x, y + radius * 0.55, radius * 1.15
+  // Single soft cloud-wide highlight — unifies blobs under one light source
+  const cloudHighlight = ctx.createRadialGradient(
+    x - radius * 0.3, y - radius * 0.3, 0,
+    x, y, radius * 1.1
   )
-  anchorGrad.addColorStop(0,   'rgba(70, 90, 140, 0.12)')
-  anchorGrad.addColorStop(0.6, 'rgba(70, 90, 140, 0.05)')
-  anchorGrad.addColorStop(1,   'rgba(70, 90, 140, 0.0)')
+  cloudHighlight.addColorStop(0,   'rgba(255,255,255,0.22)')
+  cloudHighlight.addColorStop(0.5, 'rgba(255,255,255,0.05)')
+  cloudHighlight.addColorStop(1,   'rgba(255,255,255,0.0)')
 
   ctx.beginPath()
-  ctx.ellipse(x, y + radius * 0.42, radius * 1.18, radius * 0.35, 0, 0, Math.PI)
-  ctx.fillStyle = anchorGrad
+  ctx.ellipse(x, y, radius * 1.5, radius * 1.0, 0, 0, Math.PI * 2)
+  ctx.fillStyle = cloudHighlight
   ctx.fill()
 }
 
