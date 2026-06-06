@@ -473,7 +473,7 @@ export default function Game() {
         s.lastAnimalSpawn = now
       }
       s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult, TOP_MARGIN, BOTTOM_MARGIN)
-      s.animals = updateAnimals(s.animals, w)
+      s.animals = updateAnimals(s.animals, w, h, BOTTOM_MARGIN)
     }
 
     s.floatingLabels = s.floatingLabels.filter(l => now - l.startTime < l.duration)

@@ -5,16 +5,38 @@ function pastelColour() {
   return `hsl(${hue}, 50%, 90%)`
 }
 
+// Darken or lighten an HSL colour string by `percent` lightness units
+function shadeColour(hslStr, percent) {
+  const match = hslStr.match(/hsl\(\s*(\d+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/)
+  if (!match) return hslStr
+  const [, h, s, l] = match
+  const newL = Math.max(0, Math.min(100, parseFloat(l) + percent))
+  return `hsl(${h}, ${s}%, ${newL}%)`
+}
+
+// Draw a single cloud blob with a radial gradient for a 3D lit look
+function drawCloudBlob(ctx, x, y, r, colour) {
+  const gradient = ctx.createRadialGradient(
+    x - r * 0.3, y - r * 0.3, r * 0.05,  // highlight inner (top-left)
+    x, y, r                                 // outer edge
+  )
+  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.95)')
+  gradient.addColorStop(0.45, colour)
+  gradient.addColorStop(1,    shadeColour(colour, -12))
+
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fillStyle = gradient
+  ctx.fill()
+}
+
 function sizeConfig() {
   const r = Math.random()
   if (r < 0.25) {
-    // Small
     return { radius: 28 + Math.random() * 10, points: 2 }
   } else if (r < 0.75) {
-    // Medium
     return { radius: 45 + Math.random() * 15, points: 1 }
   } else {
-    // Large
     return { radius: 65 + Math.random() * 15, points: 1 }
   }
 }
@@ -50,7 +72,13 @@ export function spawnCloud(canvasWidth, canvasHeight, topMargin = 0, bottomMargi
 
 function drawCloudShape(ctx, cloud) {
   const { x, y, radius, colour } = cloud
-  ctx.fillStyle = colour
+
+  // Drop shadow for the whole cloud
+  ctx.shadowColor   = 'rgba(100, 120, 160, 0.28)'
+  ctx.shadowBlur    = 18
+  ctx.shadowOffsetX = 4
+  ctx.shadowOffsetY = 6
+
   const blobs = [
     { dx: 0,              dy: 0,              r: radius },
     { dx: -radius * 0.55, dy: radius * 0.15,  r: radius * 0.72 },
@@ -58,11 +86,26 @@ function drawCloudShape(ctx, cloud) {
     { dx: -radius * 0.25, dy: -radius * 0.45, r: radius * 0.65 },
     { dx:  radius * 0.3,  dy: -radius * 0.35, r: radius * 0.6  },
   ]
-  blobs.forEach(b => {
-    ctx.beginPath()
-    ctx.arc(x + b.dx, y + b.dy, b.r, 0, Math.PI * 2)
-    ctx.fill()
-  })
+  blobs.forEach(b => drawCloudBlob(ctx, x + b.dx, y + b.dy, b.r, colour))
+
+  // Reset shadow before bottom shading (avoid double shadow)
+  ctx.shadowColor   = 'transparent'
+  ctx.shadowBlur    = 0
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 0
+
+  // Soft bottom-edge anchor shadow
+  const bottomGrad = ctx.createRadialGradient(
+    x, y + radius * 0.6, radius * 0.2,
+    x, y + radius * 0.6, radius * 1.1
+  )
+  bottomGrad.addColorStop(0, 'rgba(100, 120, 180, 0.0)')
+  bottomGrad.addColorStop(1, 'rgba(80, 100, 160, 0.13)')
+
+  ctx.beginPath()
+  ctx.ellipse(x, y + radius * 0.5, radius * 1.1, radius * 0.5, 0, 0, Math.PI)
+  ctx.fillStyle = bottomGrad
+  ctx.fill()
 }
 
 export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight, speedMult = 1, topMargin = 0, bottomMargin = 0) {
@@ -106,6 +149,12 @@ export function drawClouds(ctx, clouds) {
       ctx.restore()
     }
 
+    // Ensure shadow is always reset after any cloud draw path
+    ctx.shadowColor   = 'transparent'
+    ctx.shadowBlur    = 0
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
+
     ctx.globalAlpha = 1
     c.particles.forEach(p => {
       ctx.save()
@@ -144,7 +193,6 @@ export function drawClouds(ctx, clouds) {
         ctx.fill()
 
       } else {
-        // Fallback: circle draw for poof particles
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.radius ?? 6, 0, Math.PI * 2)
         ctx.fillStyle = p.colour ?? 'white'
@@ -181,7 +229,6 @@ export function explodeCloud(cloud) {
   cloud.state = 'exploding'
   cloud.animProgress = 0
 
-  // Type A — pill shards (logo-style: red fill, yellow stroke)
   const pillCount = 9
   for (let i = 0; i < pillCount; i++) {
     const baseAngle = (i / pillCount) * Math.PI * 2
@@ -204,7 +251,6 @@ export function explodeCloud(cloud) {
     })
   }
 
-  // Type B — sparkle stars
   const sparkleCount = 2 + Math.floor(Math.random() * 2)
   for (let i = 0; i < sparkleCount; i++) {
     const angle = Math.random() * Math.PI * 2
