@@ -36,6 +36,7 @@ export async function getTopDaily() {
     .gte('created_at', since)
     .order('score', { ascending: false })
     .limit(100);
+  console.log('[getTopDaily] data:', data, 'error:', error);
   if (error) { console.error('Leaderboard error:', error); return []; }
   return data ?? [];
 }

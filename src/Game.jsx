@@ -169,9 +169,15 @@ export default function Game() {
         localStorage.getItem('cloudbop_last_comp_score') || '0'
       )
       setLockoutScore(savedScore)
+      setLeaderboard([])           // clear stale data while fetching
       setShowLockout(true)
       setCountdown(formatCountdown(getSecondsUntil5am()))
-      getTopDaily().then(rows => setLeaderboard(rows))
+      getTopDaily()
+        .then(rows => {
+          console.log('[lockout] leaderboard rows:', rows)
+          setLeaderboard(rows)
+        })
+        .catch(err => console.error('[lockout] getTopDaily failed:', err))
       return
     }
 
