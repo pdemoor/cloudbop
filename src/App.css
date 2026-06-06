@@ -242,6 +242,7 @@ html, body, #root {
   position: fixed;
   top: 16px;
   left: 12px;
+  width: 130px;
 }
 
 .timer-btn:active {
@@ -253,7 +254,7 @@ html, body, #root {
   position: fixed;
   top: 58px;
   left: 12px;
-  width: 150px;
+  width: 130px;
   text-align: center;
   font-size: 0.72rem;
   font-weight: 700;

@@ -14,15 +14,25 @@ function shadeColour(hslStr, percent) {
   return `hsl(${h}, ${s}%, ${newL}%)`
 }
 
-// Draw a single cloud blob — muted highlight so blobs merge visually
+// Solid base fill pass — eliminates gaps between blobs before gradients are applied
+function fillCloudBase(ctx, blobs, colour) {
+  blobs.forEach(b => {
+    ctx.beginPath()
+    ctx.arc(b.x, b.y, b.r * 1.04, 0, Math.PI * 2)
+    ctx.fillStyle = colour
+    ctx.fill()
+  })
+}
+
+// Gradient blob pass — softer highlight (0.40) so blobs don't look spherical
 function drawCloudBlob(ctx, bx, by, br, colour) {
   const gradient = ctx.createRadialGradient(
-    bx - br * 0.15, by - br * 0.20, br * 0.25, // larger inner radius = softer
+    bx - br * 0.12, by - br * 0.18, br * 0.30,
     bx, by, br
   )
-  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.55)')
-  gradient.addColorStop(0.50, colour)
-  gradient.addColorStop(1,    shadeColour(colour, -8))
+  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.40)')
+  gradient.addColorStop(0.55, colour)
+  gradient.addColorStop(1,    shadeColour(colour, -6))
 
   ctx.beginPath()
   ctx.arc(bx, by, br, 0, Math.PI * 2)
@@ -89,24 +99,19 @@ function drawCloud(ctx, cloud) {
   const { x, y, radius, colour } = cloud
   const blobs = getCloudBlobs(x, y, radius)
 
-  // No canvas shadow — avoids dark blobs beneath clouds
+  // Step 1 — solid base fill eliminates all gaps between blobs
+  fillCloudBase(ctx, blobs, colour)
 
-  // Base layer (indices 0–3)
-  blobs.slice(0, 4).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+  // Step 2 — gradient blobs on top for subtle shading
+  blobs.forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Mid layer (indices 4–6) — includes centre fill blob
-  blobs.slice(4, 7).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
-
-  // Top bumps (indices 7–9)
-  blobs.slice(7).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
-
-  // Single soft cloud-wide highlight — unifies blobs under one light source
+  // Step 3 — single soft overall highlight from top-left
   const cloudHighlight = ctx.createRadialGradient(
     x - radius * 0.3, y - radius * 0.3, 0,
     x, y, radius * 1.1
   )
-  cloudHighlight.addColorStop(0,   'rgba(255,255,255,0.22)')
-  cloudHighlight.addColorStop(0.5, 'rgba(255,255,255,0.05)')
+  cloudHighlight.addColorStop(0,   'rgba(255,255,255,0.20)')
+  cloudHighlight.addColorStop(0.5, 'rgba(255,255,255,0.04)')
   cloudHighlight.addColorStop(1,   'rgba(255,255,255,0.0)')
 
   ctx.beginPath()
