@@ -13,7 +13,7 @@ import {
   submitDailyScore, getDailyBest, getTopDaily,
   hasPlayedToday, markPlayedToday,
 } from './supabase.js'
-import { play, toggleMute } from './sounds.js'
+import { play, toggleMute, playThunder } from './sounds.js'
 import { getSecondsUntil5am, formatCountdown, getTrophyCount } from './utils.js'
 
 const ANIMAL_INTERVAL_START = 10000
@@ -82,6 +82,16 @@ export default function Game() {
 
     rareGlow: null,
     shareHideTimer: null,
+
+    // Weather system
+    raindrops: [],
+    lightning: {
+      active: false,
+      flashAlpha: 0,
+      boltPoints: [],
+      timer: 0,
+      cooldown: 0,
+    },
   })
 
   // ── Timer ref ─────────────────────────────────────────────────────────────
@@ -170,6 +180,90 @@ export default function Game() {
     }
   }
 
+  // ── Weather helpers ───────────────────────────────────────────────────────
+
+  function getRainTier(combo) {
+    if (combo >= 50) return 'heavy'
+    if (combo >= 10) return 'light'
+    return 'none'
+  }
+
+  function generateBolt(canvas) {
+    const startX = canvas.width * 0.2 + Math.random() * canvas.width * 0.6
+    const points = [{ x: startX, y: 0 }]
+    let y = 0, x = startX
+    while (y < canvas.height * 0.75) {
+      y += 18 + Math.random() * 22
+      x += (Math.random() - 0.5) * 60
+      x  = Math.max(20, Math.min(canvas.width - 20, x))
+      points.push({ x, y })
+    }
+    return points
+  }
+
+  function drawWeatherOverlay(ctx, w, h, rainTier) {
+    if (rainTier === 'none') return
+    ctx.fillStyle = `rgba(30, 50, 90, ${rainTier === 'heavy' ? 0.22 : 0.10})`
+    ctx.fillRect(0, 0, w, h)
+  }
+
+  function drawRain(ctx, raindrops) {
+    raindrops.forEach(d => {
+      ctx.save()
+      ctx.globalAlpha   = d.alpha
+      ctx.strokeStyle   = 'rgba(180, 210, 255, 1)'
+      ctx.lineWidth     = 1.2
+      ctx.lineCap       = 'round'
+      ctx.beginPath()
+      ctx.moveTo(d.x, d.y)
+      ctx.lineTo(d.x + d.vx * 2, d.y + d.length)
+      ctx.stroke()
+      ctx.restore()
+    })
+  }
+
+  function drawLightning(ctx, w, h, lightning) {
+    if (!lightning.active) return
+    // Screen flash
+    ctx.fillStyle = `rgba(255, 255, 240, ${lightning.flashAlpha * 0.35})`
+    ctx.fillRect(0, 0, w, h)
+    const pts = lightning.boltPoints
+    if (pts.length < 2) return
+    ctx.save()
+    // Glow pass
+    ctx.strokeStyle = `rgba(180, 200, 255, ${lightning.flashAlpha * 0.6})`
+    ctx.lineWidth   = 8
+    ctx.lineCap     = 'round'
+    ctx.lineJoin    = 'round'
+    ctx.shadowColor = '#aaddff'
+    ctx.shadowBlur  = 24
+    ctx.beginPath()
+    ctx.moveTo(pts[0].x, pts[0].y)
+    pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y))
+    ctx.stroke()
+    // Core bolt
+    ctx.strokeStyle = `rgba(255, 255, 255, ${lightning.flashAlpha})`
+    ctx.lineWidth   = 2.5
+    ctx.shadowBlur  = 8
+    ctx.beginPath()
+    ctx.moveTo(pts[0].x, pts[0].y)
+    pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y))
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  function drawWeatherIndicator(ctx, w, combo) {
+    if (combo < 10) return
+    const icon = combo >= 100 ? '⛈️' : combo >= 50 ? '🌩️' : '🌧️'
+    ctx.save()
+    ctx.font          = '1.1rem serif'
+    ctx.textAlign     = 'center'
+    ctx.textBaseline  = 'top'
+    ctx.globalAlpha   = 0.75
+    ctx.fillText(icon, w / 2, 68)
+    ctx.restore()
+  }
+
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
     if (hasPlayedToday()) {
@@ -203,6 +297,8 @@ export default function Game() {
     s.trophyFlash       = null
     s.shakeFrames       = 0
     s.rareGlow          = null
+    s.raindrops         = []
+    s.lightning         = { active: false, flashAlpha: 0, boltPoints: [], timer: 0, cooldown: 0 }
     if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
 
     t.active          = true
@@ -285,6 +381,8 @@ export default function Game() {
     s.trophyFlash       = null
     s.shakeFrames       = 0
     s.rareGlow          = null
+    s.raindrops         = []
+    s.lightning         = { active: false, flashAlpha: 0, boltPoints: [], timer: 0, cooldown: 0 }
 
     setShowResults(false)
     setShowTimerBtn(true)
@@ -489,20 +587,94 @@ export default function Game() {
 
     s.floatingLabels = s.floatingLabels.filter(l => now - l.startTime < l.duration)
 
+    // ── Weather update ────────────────────────────────────────────────────
+    const rainTier = getRainTier(s.comboCount)
+
+    if (rainTier === 'none') {
+      // Clear all weather immediately when combo drops
+      s.raindrops = []
+      s.lightning.active    = false
+      s.lightning.flashAlpha = 0
+      s.lightning.cooldown  = 0
+    } else {
+      // Spawn new raindrops
+      const spawnCount = rainTier === 'heavy'
+        ? 10 + Math.floor(Math.random() * 6)
+        : 3  + Math.floor(Math.random() * 3)
+      for (let i = 0; i < spawnCount; i++) {
+        s.raindrops.push({
+          x: Math.random() * w,
+          y: -20,
+          vy: rainTier === 'heavy' ? 12 + Math.random() * 6 : 6 + Math.random() * 4,
+          length: rainTier === 'heavy' ? 20 + Math.random() * 12 : 12 + Math.random() * 8,
+          alpha: rainTier === 'heavy' ? 0.25 + Math.random() * 0.25 : 0.15 + Math.random() * 0.2,
+          vx: 0.5 + Math.random() * 1.0,
+        })
+      }
+      // Move and cull raindrops
+      s.raindrops = s.raindrops
+        .filter(d => d.y < h + 40)
+        .map(d => ({ ...d, x: d.x + d.vx, y: d.y + d.vy }))
+      if (s.raindrops.length > 600) s.raindrops = s.raindrops.slice(-600)
+
+      // Lightning
+      const lt = s.lightning
+      if (lt.cooldown > 0) {
+        lt.cooldown--
+      } else if (s.comboCount >= 50) {
+        const chance = s.comboCount >= 100 ? 0.020 : 0.004
+        if (Math.random() < chance) {
+          lt.active     = true
+          lt.flashAlpha = 0.7
+          lt.timer      = 12
+          lt.boltPoints = generateBolt(canvas)
+          lt.cooldown   = s.comboCount >= 100
+            ? 40  + Math.floor(Math.random() * 40)
+            : 120 + Math.floor(Math.random() * 180)
+          const comboSnap = s.comboCount
+          setTimeout(() => playThunder(comboSnap),
+            comboSnap >= 100 ? 80 : 300)
+        }
+      }
+      if (lt.active) {
+        lt.timer--
+        lt.flashAlpha *= 0.75
+        if (lt.timer <= 0) { lt.active = false; lt.flashAlpha = 0 }
+      }
+    }
+
+    // ── Draw ─────────────────────────────────────────────────────────────
     ctx.save()
     if (s.shakeFrames > 0) {
       ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12)
       s.shakeFrames--
     }
 
+    // 1. Sky gradient
     const grad = ctx.createLinearGradient(0, 0, 0, h)
     grad.addColorStop(0, '#1AADDF')
     grad.addColorStop(1, '#87CEEB')
     ctx.fillStyle = grad
     ctx.fillRect(0, 0, w, h)
 
+    // 2. Weather overlay (dark tint)
+    drawWeatherOverlay(ctx, w, h, rainTier)
+
+    // 3. Rain streaks
+    drawRain(ctx, s.raindrops)
+
+    // 4. Lightning
+    drawLightning(ctx, w, h, s.lightning)
+
+    // 5. Weather indicator icon
+    drawWeatherIndicator(ctx, w, s.comboCount)
+
+    // 6. Clouds
     drawClouds(ctx, s.clouds)
+
+    // 7. Animals
     drawAnimals(ctx, s.animals)
+
     drawScore(ctx, s.score, s.highScore, w)
 
     if (s.comboCount >= 3) {

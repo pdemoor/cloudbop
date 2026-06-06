@@ -32,6 +32,53 @@ export function toggleMute() {
   return muted;
 }
 
+// ── Thunder — Web Audio API, fresh context per strike ────────────────────────
+
+function createThunder(intensity) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext
+    if (!AudioContext) return
+    const actx = new AudioContext()
+    const duration = intensity === 'close' ? 1.8 : 1.2
+    const bufferSize = Math.floor(actx.sampleRate * duration)
+    const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate)
+    const data = buffer.getChannelData(0)
+
+    for (let i = 0; i < bufferSize; i++) {
+      const t = i / actx.sampleRate
+      const envelope = intensity === 'close'
+        ? Math.exp(-t * 2.5)
+        : Math.exp(-t * 4.0)
+      data[i] = (Math.random() * 2 - 1) * envelope *
+        (intensity === 'close' ? 0.9 : 0.5)
+    }
+
+    const source = actx.createBufferSource()
+    source.buffer = buffer
+
+    const filter = actx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = intensity === 'close' ? 180 : 120
+
+    const gain = actx.createGain()
+    gain.gain.value = muted ? 0 : 0.85
+
+    source.connect(filter)
+    filter.connect(gain)
+    gain.connect(actx.destination)
+    source.start()
+
+    setTimeout(() => actx.close(), (duration + 0.5) * 1000)
+  } catch (e) {
+    console.warn('Thunder audio error:', e)
+  }
+}
+
+export function playThunder(combo) {
+  if (muted) return
+  createThunder(combo >= 100 ? 'close' : 'distant')
+}
+
 // Play with random pitch variation ±8%
 export function play(name) {
   if (muted) return;
