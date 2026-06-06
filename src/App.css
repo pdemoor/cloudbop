@@ -115,3 +115,121 @@ html, body, #root {
   touch-action: manipulation;
   flex-shrink: 0;
 }
+
+/* ── Logo overlay ── */
+#game-logo {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  opacity: 0.92;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Timer mode button ── */
+.timer-btn {
+  position: fixed;
+  top: 72px;
+  left: 12px;
+  background: white;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  cursor: pointer;
+  touch-action: manipulation;
+  z-index: 10;
+  color: #1AADDF;
+  font-family: system-ui, sans-serif;
+}
+
+.timer-btn:active {
+  transform: scale(0.95);
+}
+
+/* ── Timer results overlay ── */
+#timer-results {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 173, 223, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.results-inner {
+  background: white;
+  border-radius: 24px;
+  padding: 40px 48px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  max-width: 320px;
+  width: 90%;
+  font-family: system-ui, sans-serif;
+}
+
+.results-inner h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1AADDF;
+  margin-bottom: 8px;
+}
+
+.results-score {
+  font-size: 4rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  line-height: 1;
+  margin: 8px 0 0;
+}
+
+.results-label {
+  font-size: 1rem;
+  color: #888;
+  margin: 4px 0 12px;
+}
+
+.results-trophies {
+  font-size: 2rem;
+  margin-bottom: 24px;
+  min-height: 2.4rem;
+}
+
+.results-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#results-share {
+  background: #1AADDF;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-family: system-ui, sans-serif;
+}
+
+#results-play-again {
+  background: white;
+  color: #1AADDF;
+  border: 2px solid #1AADDF;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-family: system-ui, sans-serif;
+}

@@ -12,7 +12,8 @@ import { drawScore, drawFloatingLabels } from './scorer.js'
 
 const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
-const COMBO_WINDOW = 1500  // ms between taps to keep combo
+const COMBO_WINDOW          = 1500   // ms between taps to keep combo
+const TIMER_DURATION        = 60000  // 1 minute in ms
 
 function makeLabel(x, y, text, colour, fontSize, duration) {
   return { x, y, text, colour, fontSize, duration, startTime: performance.now() }
@@ -21,12 +22,16 @@ function makeLabel(x, y, text, colour, fontSize, duration) {
 export default function Game() {
   const canvasRef = useRef(null)
 
-  // React state — only what drives HTML elements
-  const [showShare, setShowShare]       = useState(false)
-  const [shareScore, setShareScore]     = useState(0)
-  const [shareCopied, setShareCopied]   = useState(false)
-  const [showNudge, setShowNudge]       = useState(false)
+  // ── React state (drives HTML elements only) ───────────────────────────────
+  const [showShare, setShowShare]           = useState(false)
+  const [shareCopied, setShareCopied]       = useState(false)
+  const [showNudge, setShowNudge]           = useState(false)
+  const [showTimerBtn, setShowTimerBtn]     = useState(true)
+  const [showResults, setShowResults]       = useState(false)
+  const [resultScore, setResultScore]       = useState(0)
+  const [resultShareCopied, setResultShareCopied] = useState(false)
 
+  // ── Game state ref (game-loop mutable, no re-renders) ─────────────────────
   const stateRef = useRef({
     clouds: [],
     animals: [],
@@ -51,15 +56,28 @@ export default function Game() {
     shakeFrames: 0,
 
     // trophy flash
-    trophyFlash: null,      // { startTime, duration }
+    trophyFlash: null,
     lastTrophyThreshold: 0,
 
     // rare glow
-    rareGlow: null,         // { startTime, duration }
+    rareGlow: null,
 
     // share button auto-hide timer
     shareHideTimer: null,
   })
+
+  // ── Timer ref (game-loop readable, avoids stale React state) ─────────────
+  const timerRef = useRef({
+    active: false,
+    ended: false,
+    startTime: null,
+    timeRemaining: 60,
+    lastFlashSecond: Infinity,
+    flashAlpha: 0,
+  })
+
+  // Stable ref to endTimer callback so game loop can call it without closure staleness
+  const endTimerCallbackRef = useRef(null)
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -69,8 +87,7 @@ export default function Game() {
     const s = stateRef.current
     for (let i = 0; i < 5; i++) s.clouds.push(makeCloud(w, h, true))
 
-    const onResize = () => resizeCanvas()
-    window.addEventListener('resize', onResize)
+    window.addEventListener('resize', resizeCanvas)
 
     // iOS nudge — 30 seconds, once
     const isStandalone =
@@ -83,7 +100,7 @@ export default function Game() {
     }
 
     return () => {
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', resizeCanvas)
       clearTimeout(nudgeTimer)
     }
   }, [])
@@ -95,29 +112,98 @@ export default function Game() {
     canvas.height = window.innerHeight
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Score / ramp helpers ──────────────────────────────────────────────────
   function checkRamp(s) {
     const tier = Math.floor(s.score / 50)
     if (tier > s.lastRampThreshold) {
       s.lastRampThreshold = tier
-      s.speedMult        = Math.min(2.5, 1 + tier * 0.1)
-      s.animalInterval   = Math.max(ANIMAL_INTERVAL_MIN, ANIMAL_INTERVAL_START - tier * 1000)
+      s.speedMult      = Math.min(2.5, 1 + tier * 0.1)
+      s.animalInterval = Math.max(ANIMAL_INTERVAL_MIN, ANIMAL_INTERVAL_START - tier * 1000)
     }
   }
 
   function checkTrophy(s, now) {
+    // Suppress v2 share button in timer mode (results screen handles sharing)
+    if (timerRef.current.active) return
     const threshold = Math.floor(s.score / 100) * 100
     if (threshold > 0 && threshold > s.lastTrophyThreshold) {
       s.lastTrophyThreshold = threshold
       s.trophyFlash = { startTime: now, duration: 800 }
 
-      // Show share button for 5s
-      setShareScore(s.score)
       setShowShare(true)
       if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
       s.shareHideTimer = setTimeout(() => setShowShare(false), 5000)
     }
   }
+
+  // ── Timer controls ────────────────────────────────────────────────────────
+  const startTimer = useCallback(() => {
+    const s = stateRef.current
+    const t = timerRef.current
+
+    // Reset game state for a clean run
+    s.score               = 0
+    s.comboCount          = 0
+    s.lastTapTime         = 0
+    s.lastRampThreshold   = 0
+    s.speedMult           = 1
+    s.animalInterval      = ANIMAL_INTERVAL_START
+    s.floatingLabels      = []
+    s.lastTrophyThreshold = 0
+    s.trophyFlash         = null
+    s.shakeFrames         = 0
+    s.rareGlow            = null
+    if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
+
+    // Reset timer
+    t.active          = true
+    t.ended           = false
+    t.startTime       = performance.now()
+    t.timeRemaining   = 60
+    t.lastFlashSecond = Infinity
+    t.flashAlpha      = 0
+
+    setShowTimerBtn(false)
+    setShowResults(false)
+    setShowShare(false)
+  }, [])
+
+  // Wire up end-timer callback (called from game loop)
+  endTimerCallbackRef.current = useCallback(() => {
+    const s = stateRef.current
+    setResultScore(s.score)
+    // Update high score if beaten
+    if (s.score > s.highScore) {
+      s.highScore = s.score
+      localStorage.setItem('cloudbop_high', s.highScore)
+    }
+    setShowResults(true)
+    setShowTimerBtn(false)
+  }, [])
+
+  const playAgain = useCallback(() => {
+    const t = timerRef.current
+    t.active        = false
+    t.ended         = false
+    t.timeRemaining = 60
+    t.flashAlpha    = 0
+
+    const s = stateRef.current
+    s.score               = 0
+    s.comboCount          = 0
+    s.lastRampThreshold   = 0
+    s.speedMult           = 1
+    s.animalInterval      = ANIMAL_INTERVAL_START
+    s.floatingLabels      = []
+    s.lastTrophyThreshold = 0
+    s.trophyFlash         = null
+    s.shakeFrames         = 0
+    s.rareGlow            = null
+
+    setShowResults(false)
+    setShowTimerBtn(true)
+    setShowShare(false)
+  }, [])
 
   // ── Pointer handlers ──────────────────────────────────────────────────────
   const onPointerDown = useCallback((e) => {
@@ -139,7 +225,11 @@ export default function Game() {
 
   const onPointerUp = useCallback((e) => {
     const s = stateRef.current
+    const t = timerRef.current
     if (!s.pointer) return
+    // Block taps when timer has ended (results screen is showing)
+    if (t.ended) { s.pointer = null; return }
+
     const canvas = canvasRef.current
     const rect   = canvas.getBoundingClientRect()
     const upX = e.clientX - rect.left
@@ -159,7 +249,6 @@ export default function Game() {
         bopAnimal(a)
         s.score += a.points
         hit = true
-
         if (a.rare) {
           s.floatingLabels.push(makeLabel(tx, ty, '+3 ✨', '#FFD700', '1.6rem', 800))
           s.rareGlow = { startTime: now, duration: 300 }
@@ -182,7 +271,6 @@ export default function Game() {
           }
           s.score += c.points
 
-          // Point label
           const label = c.points === 2 ? '+2' : '+1'
           s.floatingLabels.push(makeLabel(tx, ty + 20, label, 'white', '1.2rem', 600))
 
@@ -195,8 +283,7 @@ export default function Game() {
           s.lastTapTime = now
 
           if (s.comboCount >= 3) {
-            const bonus = s.comboCount
-            s.score += bonus
+            s.score += s.comboCount
             s.floatingLabels.push(
               makeLabel(tx, ty - 30, `COMBO x${s.comboCount}!`, '#FFE600', '1.6rem', 800)
             )
@@ -208,31 +295,28 @@ export default function Game() {
       }
     }
 
-    // Update high score
-    if (s.score > s.highScore) {
+    // Update high score (only in free play; timer mode updates on end)
+    if (!t.active && s.score > s.highScore) {
       s.highScore = s.score
       localStorage.setItem('cloudbop_high', s.highScore)
     }
 
-    // Speed ramp & trophy check
     checkRamp(s)
     checkTrophy(s, now)
 
     s.pointer = null
   }, [])
 
-  // ── Add cloud button ──────────────────────────────────────────────────────
+  // ── Add cloud ─────────────────────────────────────────────────────────────
   const addCloud = useCallback(() => {
-    const s = stateRef.current
-    s.clouds.push(spawnCloud(window.innerWidth, window.innerHeight))
+    stateRef.current.clouds.push(spawnCloud(window.innerWidth, window.innerHeight))
   }, [])
 
-  // ── Share handler ─────────────────────────────────────────────────────────
+  // ── Free-play share handler ───────────────────────────────────────────────
   const handleShare = useCallback(() => {
-    const s   = stateRef.current
-    const score = s.score
-    const trophyCount = Math.min(Math.floor(score / 100), 5)
-    const text = `I scored ${score} on cloudbop.com! ${'🏆'.repeat(trophyCount)}`
+    const s = stateRef.current
+    const trophyCount = Math.min(Math.floor(s.score / 100), 5)
+    const text = `I scored ${s.score} on cloudbop.com! ${'🏆'.repeat(trophyCount)}`
     if (navigator.share) {
       navigator.share({ text, url: 'https://www.cloudbop.com' })
         .then(() => setShowShare(false))
@@ -240,12 +324,25 @@ export default function Game() {
     } else {
       navigator.clipboard.writeText(`${text} https://www.cloudbop.com`)
       setShareCopied(true)
-      setTimeout(() => {
-        setShareCopied(false)
-        setShowShare(false)
-      }, 1500)
+      setTimeout(() => { setShareCopied(false); setShowShare(false) }, 1500)
     }
-    if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
+    if (stateRef.current.shareHideTimer) clearTimeout(stateRef.current.shareHideTimer)
+  }, [])
+
+  // ── Results share handler ─────────────────────────────────────────────────
+  const handleResultShare = useCallback(() => {
+    // resultScore captured in React state is the score at timer end
+    const score = stateRef.current.score  // still current (hasn't been reset)
+    const trophyCount = Math.min(Math.floor(score / 100), 5)
+    const trophyStr = '🏆'.repeat(trophyCount) || 'none'
+    const text = `I scored ${score} points in 1 minute on Cloud Bop! ${trophyStr}`
+    if (navigator.share) {
+      navigator.share({ title: 'Cloud Bop', text, url: 'https://www.cloudbop.com' }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(`${text} https://www.cloudbop.com`)
+      setResultShareCopied(true)
+      setTimeout(() => setResultShareCopied(false), 2000)
+    }
   }, [])
 
   // ── Dismiss nudge ─────────────────────────────────────────────────────────
@@ -262,26 +359,46 @@ export default function Game() {
     const w = canvas.width
     const h = canvas.height
     const s = stateRef.current
+    const t = timerRef.current
 
-    // Spawn animal
-    if (now - s.lastAnimalSpawn > s.animalInterval) {
-      s.animals.push(spawnAnimal(w, h))
-      s.lastAnimalSpawn = now
+    // ── Timer logic ──────────────────────────────────────────────────────
+    if (t.active) {
+      const elapsed = now - t.startTime
+      const secsLeft = Math.max(0, Math.ceil((TIMER_DURATION - elapsed) / 1000))
+
+      // Trigger per-second flash for last 5 seconds
+      if (secsLeft <= 5 && secsLeft < t.lastFlashSecond) {
+        t.lastFlashSecond = secsLeft
+        t.flashAlpha = 0.15
+      }
+
+      t.timeRemaining = secsLeft
+
+      if (secsLeft <= 0 && !t.ended) {
+        t.ended = true
+        t.active = false
+        endTimerCallbackRef.current()
+      }
     }
 
-    // Update
-    s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult)
-    s.animals = updateAnimals(s.animals, w)
+    // ── Updates (paused when timer has ended) ────────────────────────────
+    if (!t.ended) {
+      if (now - s.lastAnimalSpawn > s.animalInterval) {
+        s.animals.push(spawnAnimal(w, h))
+        s.lastAnimalSpawn = now
+      }
+      s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult)
+      s.animals = updateAnimals(s.animals, w)
+    }
+
     s.floatingLabels = s.floatingLabels.filter(l => now - l.startTime < l.duration)
 
-    // ── Draw ──────────────────────────────────────────────────────────────
+    // ── Draw ─────────────────────────────────────────────────────────────
 
-    // Screen shake
+    // Screen shake transform
     ctx.save()
     if (s.shakeFrames > 0) {
-      const sx = (Math.random() - 0.5) * 12
-      const sy = (Math.random() - 0.5) * 12
-      ctx.translate(sx, sy)
+      ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12)
       s.shakeFrames--
     }
 
@@ -300,15 +417,11 @@ export default function Game() {
     // Trophy flash overlay
     if (s.trophyFlash) {
       const elapsed = now - s.trophyFlash.startTime
-      const t = elapsed / s.trophyFlash.duration
-      if (t < 1) {
-        const alpha = 0.25 * (1 - t)
-        ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`
+      const tf = elapsed / s.trophyFlash.duration
+      if (tf < 1) {
+        ctx.fillStyle = `rgba(255, 215, 0, ${0.25 * (1 - tf)})`
         ctx.fillRect(0, 0, w, h)
-
-        // Centred trophy text
-        const textAlpha = Math.max(0, 1 - t * (s.trophyFlash.duration / 800))
-        ctx.globalAlpha = textAlpha
+        ctx.globalAlpha = Math.max(0, 1 - tf)
         ctx.font = 'bold 2rem system-ui'
         ctx.fillStyle = '#FFD700'
         ctx.shadowColor = 'rgba(0,0,0,0.8)'
@@ -326,10 +439,9 @@ export default function Game() {
     // Rare glow border
     if (s.rareGlow) {
       const elapsed = now - s.rareGlow.startTime
-      const t = elapsed / s.rareGlow.duration
-      if (t < 1) {
-        const alpha = 0.3 * (1 - t)
-        ctx.strokeStyle = `rgba(255, 215, 0, ${alpha})`
+      const rg = elapsed / s.rareGlow.duration
+      if (rg < 1) {
+        ctx.strokeStyle = `rgba(255, 215, 0, ${0.3 * (1 - rg)})`
         ctx.lineWidth = 20
         ctx.strokeRect(0, 0, w, h)
       } else {
@@ -337,10 +449,34 @@ export default function Game() {
       }
     }
 
+    // Timer countdown display
+    if (t.active || (t.ended && t.timeRemaining === 0)) {
+      // Red flash overlay (last 5 seconds)
+      if (t.flashAlpha > 0) {
+        ctx.fillStyle = `rgba(255, 59, 48, ${t.flashAlpha})`
+        ctx.fillRect(0, 0, w, h)
+        t.flashAlpha = Math.max(0, t.flashAlpha - 0.0125) // ~200ms fade at 60fps
+      }
+
+      if (t.active) {
+        ctx.save()
+        ctx.font = 'bold 1.6rem system-ui'
+        ctx.fillStyle = t.timeRemaining <= 5 ? '#FF3B30' : 'white'
+        ctx.shadowColor = 'rgba(0,0,0,0.4)'
+        ctx.shadowBlur = 6
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillText(`${t.timeRemaining}s`, w / 2, 36)
+        ctx.restore()
+      }
+    }
+
     ctx.restore() // end shake transform
   })
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const trophyCount = Math.min(Math.floor(resultScore / 100), 5)
+
   return (
     <>
       <canvas
@@ -352,15 +488,18 @@ export default function Game() {
         onPointerCancel={onPointerUp}
       />
 
+      {showTimerBtn && (
+        <button className="timer-btn" onClick={startTimer}>
+          ⏱ 1 Min
+        </button>
+      )}
+
       <button className="add-cloud-btn" onClick={addCloud}>
         ☁️ Add
       </button>
 
       {showShare && (
-        <button
-          className="share-btn"
-          onClick={handleShare}
-        >
+        <button className="share-btn" onClick={handleShare}>
           {shareCopied ? 'Copied! ✓' : 'Share my score 🏆'}
         </button>
       )}
@@ -368,10 +507,29 @@ export default function Game() {
       {showNudge && (
         <div className="nudge-bar">
           <span className="nudge-text">
-            ☁️ <strong>Add Cloudpop to your home screen</strong><br />
+            ☁️ <strong>Add Cloud Bop to your home screen</strong><br />
             <span className="nudge-sub">Tap Share then "Add to Home Screen"</span>
           </span>
           <button className="nudge-dismiss" onClick={dismissNudge}>✕</button>
+        </div>
+      )}
+
+      {showResults && (
+        <div id="timer-results">
+          <div className="results-inner">
+            <h2>Time's Up!</h2>
+            <p className="results-score">{resultScore}</p>
+            <p className="results-label">points</p>
+            <p className="results-trophies">{'🏆'.repeat(trophyCount)}</p>
+            <div className="results-buttons">
+              <button id="results-share" onClick={handleResultShare}>
+                {resultShareCopied ? 'Copied! ✓' : '📸 Share Result'}
+              </button>
+              <button id="results-play-again" onClick={playAgain}>
+                Play Again
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

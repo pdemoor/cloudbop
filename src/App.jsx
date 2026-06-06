@@ -16,8 +16,15 @@ export default function App() {
     <>
       {showSplash && (
         <div className={`splash${fadeOut ? ' fade-out' : ''}`}>
-          <img src="/icon-512.png" alt="Cloudpop" />
+          <img src="/icon-512.png" alt="Cloud Bop" />
         </div>
+      )}
+      {!showSplash && (
+        <img
+          id="game-logo"
+          src="/icon-192.png"
+          alt="Cloud Bop"
+        />
       )}
       <div className="game-wrapper">
         <Game />
