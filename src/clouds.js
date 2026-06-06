@@ -30,21 +30,22 @@ function drawCloudBlob(ctx, bx, by, br, colour) {
   ctx.fill()
 }
 
-// Wide flat cloud — tighter blob spacing for merged unified silhouette
+// Wide flat cloud — 10-blob layout with centre fill to close the top gap
 function getCloudBlobs(cx, cy, r) {
   return [
-    // Base layer — tighter spacing
+    // Base (0–3): wide flat underbelly
     { x: cx - r * 0.90, y: cy + r * 0.28, r: r * 0.58 },
     { x: cx - r * 0.30, y: cy + r * 0.35, r: r * 0.66 },
     { x: cx + r * 0.30, y: cy + r * 0.35, r: r * 0.66 },
     { x: cx + r * 0.88, y: cy + r * 0.28, r: r * 0.56 },
-    // Mid layer
-    { x: cx - r * 0.68, y: cy + r * 0.02, r: r * 0.60 },
-    { x: cx + r * 0.62, y: cy + r * 0.02, r: r * 0.57 },
-    // Top bumps — irregular, closer together
-    { x: cx - r * 0.72, y: cy - r * 0.20, r: r * 0.50 },
-    { x: cx - r * 0.05, y: cy - r * 0.38, r: r * 0.64 }, // tallest
-    { x: cx + r * 0.58, y: cy - r * 0.24, r: r * 0.52 },
+    // Mid (4–6): centre blob fills the gap between sides and top bumps
+    { x: cx - r * 0.65, y: cy - r * 0.02, r: r * 0.62 },
+    { x: cx,            y: cy - r * 0.05, r: r * 0.65 }, // centre fill
+    { x: cx + r * 0.60, y: cy - r * 0.02, r: r * 0.60 },
+    // Top bumps (7–9): irregular heights
+    { x: cx - r * 0.72, y: cy - r * 0.22, r: r * 0.52 },
+    { x: cx - r * 0.05, y: cy - r * 0.40, r: r * 0.64 }, // tallest
+    { x: cx + r * 0.58, y: cy - r * 0.26, r: r * 0.54 },
   ]
 }
 
@@ -93,11 +94,11 @@ function drawCloud(ctx, cloud) {
   // Base layer (indices 0–3)
   blobs.slice(0, 4).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Mid layer (indices 4–5)
-  blobs.slice(4, 6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+  // Mid layer (indices 4–6) — includes centre fill blob
+  blobs.slice(4, 7).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Top bumps (indices 6–8)
-  blobs.slice(6).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+  // Top bumps (indices 7–9)
+  blobs.slice(7).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
   // Single soft cloud-wide highlight — unifies blobs under one light source
   const cloudHighlight = ctx.createRadialGradient(

@@ -248,13 +248,13 @@ html, body, #root {
   transform: scale(0.95);
 }
 
-/* ── 24hr best display — below Daily Comp button ── */
+/* ── 24hr best display — centred below Daily Comp button ── */
 #daily-best {
   position: fixed;
   top: 58px;
   left: 12px;
-  width: 140px;
-  text-align: left;
+  width: 150px;
+  text-align: center;
   font-size: 0.72rem;
   font-weight: 700;
   font-family: Arial, Helvetica, sans-serif;

@@ -11,8 +11,13 @@ export function drawScore(ctx, score, highScore, canvasWidth) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillText(`Score: ${score}`, canvasWidth - 20, 36)
 
+  // Centre PB under the Score text
+  const scoreWidth = ctx.measureText(`Score: ${score}`).width
+  const scoreMidX  = canvasWidth - 20 - scoreWidth / 2
   ctx.font = '1rem system-ui'
-  ctx.fillText(`PB: ${highScore}`, canvasWidth - 20, 58)
+  ctx.textAlign = 'center'
+  ctx.fillText(`PB: ${highScore}`, scoreMidX, 58)
+  ctx.textAlign = 'right'
 
   const trophyCount = getTrophyCount(score)
   if (trophyCount > 0) {
