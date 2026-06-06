@@ -26,6 +26,18 @@ export async function submitDailyScore(score) {
   if (error) console.error('Score submit error:', error);
 }
 
+export async function getTop5Daily() {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('daily_scores')
+    .select('score')
+    .gte('created_at', since)
+    .order('score', { ascending: false })
+    .limit(5);
+  if (error) { console.error('Top 5 error:', error); return []; }
+  return data?.map(r => r.score) ?? [];
+}
+
 export async function getDailyBest() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase

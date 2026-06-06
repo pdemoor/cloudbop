@@ -10,10 +10,11 @@ import {
 } from './animals.js'
 import { drawScore, drawFloatingLabels } from './scorer.js'
 import {
-  submitDailyScore, getDailyBest,
+  submitDailyScore, getDailyBest, getTop5Daily,
   hasPlayedToday, markPlayedToday,
 } from './supabase.js'
 import { play, toggleMute } from './sounds.js'
+import { getSecondsUntil5am, formatCountdown } from './utils.js'
 
 const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
@@ -37,8 +38,13 @@ export default function Game() {
   const [resultScore, setResultScore]               = useState(0)
   const [resultShareCopied, setResultShareCopied]   = useState(false)
   const [dailyBest, setDailyBest]                   = useState(null)
-  const [compPlayedToday, setCompPlayedToday]       = useState(false)
   const [muted, setMuted]                           = useState(false)
+
+  // Lockout popup state
+  const [showLockout, setShowLockout]               = useState(false)
+  const [lockoutScore, setLockoutScore]             = useState(0)
+  const [top5, setTop5]                             = useState([])
+  const [countdown, setCountdown]                   = useState('')
 
   // ── Game state ref (game-loop mutable, no re-renders) ─────────────────────
   const stateRef = useRef({
@@ -127,6 +133,15 @@ export default function Game() {
     return () => clearTimeout(t)
   }, [showNudge])
 
+  // Live countdown tick while lockout popup is open
+  useEffect(() => {
+    if (!showLockout) return
+    const interval = setInterval(() => {
+      setCountdown(formatCountdown(getSecondsUntil5am()))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [showLockout])
+
   function resizeCanvas() {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -161,10 +176,15 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
-    // One-play-per-day gate
+    // One-play-per-day gate — show lockout popup instead of toast
     if (hasPlayedToday()) {
-      setCompPlayedToday(true)
-      setTimeout(() => setCompPlayedToday(false), 4000)
+      const savedScore = parseInt(
+        localStorage.getItem('cloudbop_last_comp_score') || '0'
+      )
+      setLockoutScore(savedScore)
+      setShowLockout(true)
+      setCountdown(formatCountdown(getSecondsUntil5am()))
+      getTop5Daily().then(scores => setTop5(scores))
       return
     }
 
@@ -199,7 +219,6 @@ export default function Game() {
     setShowTimerBtn(false)
     setShowResults(false)
     setShowShare(false)
-    setCompPlayedToday(false)
   }, [])
 
   // Wire up end-timer callback (called from game loop)
@@ -215,9 +234,10 @@ export default function Game() {
       localStorage.setItem('cloudbop_high', s.highScore)
     }
 
-    // Submit to leaderboard and mark today as played
+    // Submit to leaderboard, mark today played, save score for lockout display
     submitDailyScore(finalScore)
     markPlayedToday()
+    localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
 
     // Refresh 24hr best after submit (slight delay to let insert land)
     setTimeout(() => {
@@ -343,7 +363,6 @@ export default function Game() {
             s.floatingLabels.push(
               makeLabel(tx, ty - 30, `COMBO x${s.comboCount}!`, '#FFE600', '1.6rem', 800)
             )
-            // Combo sound: combo5 at 5+, combo3 at exactly 3
             if (s.comboCount >= 5) play('combo5')
             else if (s.comboCount === 3) play('combo3')
           }
@@ -478,7 +497,7 @@ export default function Game() {
     drawAnimals(ctx, s.animals)
     drawScore(ctx, s.score, s.highScore, w)
 
-    // Combo multiplier display (Step 8)
+    // Combo multiplier display
     if (s.comboCount >= 3) {
       ctx.save()
       ctx.font = 'bold 1rem system-ui'
@@ -530,7 +549,6 @@ export default function Game() {
 
     // Timer countdown display
     if (t.active || (t.ended && t.timeRemaining === 0)) {
-      // Red flash overlay (last 5 seconds)
       if (t.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 59, 48, ${t.flashAlpha})`
         ctx.fillRect(0, 0, w, h)
@@ -573,7 +591,10 @@ export default function Game() {
         onClick={() => { const nowMuted = toggleMute(); setMuted(nowMuted) }}
         aria-label={muted ? 'Unmute' : 'Mute'}
       >
-        {muted ? '🔇' : '🔊'}
+        <span className="mute-icon">
+          🔊
+          {muted && <span className="mute-cross">✕</span>}
+        </span>
       </button>
 
       {/* Daily Comp button */}
@@ -587,13 +608,6 @@ export default function Game() {
       {showTimerBtn && (
         <div id="daily-best">
           {dailyBest !== null ? `24hr best: ${dailyBest}` : '24hr best: —'}
-        </div>
-      )}
-
-      {/* Already-played-today message */}
-      {compPlayedToday && (
-        <div id="comp-played-msg">
-          You've played today's Daily Comp.<br />Come back tomorrow! ☀️
         </div>
       )}
 
@@ -620,6 +634,46 @@ export default function Game() {
             ☁️ <strong>Add to home screen for the best experience ✨</strong>
           </span>
           <button className="nudge-dismiss" onClick={dismissNudge}>✕</button>
+        </div>
+      )}
+
+      {/* Daily Comp lockout popup */}
+      {showLockout && (
+        <div id="lockout-overlay">
+          <div className="lockout-inner">
+            <h2>You've played today! 🎉</h2>
+
+            <p className="lockout-label">Your score</p>
+            <p className="lockout-score">{lockoutScore}</p>
+
+            <div className="lockout-countdown">
+              <p className="lockout-countdown-label">Next comp unlocks at 5am</p>
+              <p className="lockout-countdown-timer">{countdown}</p>
+            </div>
+
+            <div className="lockout-leaderboard">
+              <p className="lockout-lb-title">24hr Top 5</p>
+              {top5.length === 0 ? (
+                <p className="lockout-lb-empty">No scores yet</p>
+              ) : (
+                <ol className="lockout-lb-list">
+                  {top5.map((score, i) => (
+                    <li
+                      key={i}
+                      className={`lockout-lb-item${i === 0 ? ' lockout-lb-first' : ''}`}
+                    >
+                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                      <span>{score}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+
+            <button className="lockout-close" onClick={() => setShowLockout(false)}>
+              Close
+            </button>
+          </div>
         </div>
       )}
 
