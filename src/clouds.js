@@ -74,12 +74,12 @@ export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight, speedM
       if (c.animProgress >= 1) c.state = 'dead'
     }
 
-    for (const p of c.particles) {
+    c.particles.forEach(p => {
       p.x += p.vx
       p.y += p.vy
-      if (c.state === 'exploding') p.vy += 0.3
-      p.alpha -= 0.025
-    }
+      p.vy += p.gravity ?? 0.3
+      p.alpha -= 0.022
+    })
     c.particles = c.particles.filter(p => p.alpha > 0)
   }
   return clouds.filter(c => c.state !== 'dead' || c.particles.length > 0)
@@ -103,13 +103,52 @@ export function drawClouds(ctx, clouds) {
     }
 
     ctx.globalAlpha = 1
-    for (const p of c.particles) {
+    c.particles.forEach(p => {
+      ctx.save()
       ctx.globalAlpha = p.alpha
-      ctx.fillStyle = p.colour
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
-      ctx.fill()
-    }
+
+      if (p.type === 'pill') {
+        ctx.translate(p.x, p.y)
+        ctx.rotate(p.angle)
+        const w = p.width, h = p.height, r = h / 2
+        ctx.beginPath()
+        ctx.moveTo(-w / 2 + r, -h / 2)
+        ctx.lineTo(w / 2 - r, -h / 2)
+        ctx.arcTo(w / 2, -h / 2, w / 2, h / 2, r)
+        ctx.lineTo(w / 2 - r, h / 2)
+        ctx.arcTo(-w / 2, h / 2, -w / 2, -h / 2, r)
+        ctx.closePath()
+        ctx.fillStyle = p.colour
+        ctx.fill()
+        ctx.strokeStyle = p.strokeColour
+        ctx.lineWidth = p.strokeWidth
+        ctx.stroke()
+
+      } else if (p.type === 'sparkle') {
+        ctx.translate(p.x, p.y)
+        const s = p.size, inner = s * 0.4
+        ctx.beginPath()
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 - Math.PI / 2
+          const rad = i % 2 === 0 ? s : inner
+          i === 0
+            ? ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad)
+            : ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad)
+        }
+        ctx.closePath()
+        ctx.fillStyle = p.colour
+        ctx.fill()
+
+      } else {
+        // Fallback: circle draw for poof particles
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.radius ?? 6, 0, Math.PI * 2)
+        ctx.fillStyle = p.colour ?? 'white'
+        ctx.fill()
+      }
+
+      ctx.restore()
+    })
     ctx.globalAlpha = 1
   }
 }
@@ -137,17 +176,45 @@ export function poofCloud(cloud) {
 export function explodeCloud(cloud) {
   cloud.state = 'exploding'
   cloud.animProgress = 0
-  const count = 10 + Math.floor(Math.random() * 3)
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + rand(-0.3, 0.3)
-    const speed = rand(3, 8)
+
+  // Type A — pill shards (logo-style: red fill, yellow stroke)
+  const pillCount = 9
+  for (let i = 0; i < pillCount; i++) {
+    const baseAngle = (i / pillCount) * Math.PI * 2
+    const spread = (Math.random() - 0.5) * 0.5
+    const angle = baseAngle + spread
+    const speed = 4 + Math.random() * 5
     cloud.particles.push({
+      type: 'pill',
       x: cloud.x, y: cloud.y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 2,
+      vy: Math.sin(angle) * speed,
+      angle: angle + (Math.random() - 0.5) * 0.8,
+      width: 18 + Math.random() * 18,
+      height: 8 + Math.random() * 5,
       alpha: 1,
-      radius: rand(6, 14),
-      colour: cloud.colour,
+      gravity: 0.28,
+      colour: '#FF2D2D',
+      strokeColour: '#FFE600',
+      strokeWidth: 4,
+    })
+  }
+
+  // Type B — sparkle stars
+  const sparkleCount = 2 + Math.floor(Math.random() * 2)
+  for (let i = 0; i < sparkleCount; i++) {
+    const angle = Math.random() * Math.PI * 2
+    const speed = 2 + Math.random() * 2
+    cloud.particles.push({
+      type: 'sparkle',
+      x: cloud.x + (Math.random() - 0.5) * cloud.radius,
+      y: cloud.y + (Math.random() - 0.5) * cloud.radius,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      alpha: 1,
+      size: 10 + Math.random() * 8,
+      colour: i % 2 === 0 ? '#FFFFFF' : '#FFE600',
+      gravity: 0.1,
     })
   }
 }
