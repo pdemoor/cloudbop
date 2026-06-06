@@ -5,20 +5,37 @@ function pastelColour() {
   return `hsl(${hue}, 50%, 90%)`
 }
 
+function sizeConfig() {
+  const r = Math.random()
+  if (r < 0.25) {
+    // Small
+    return { radius: 28 + Math.random() * 10, points: 2 }
+  } else if (r < 0.75) {
+    // Medium
+    return { radius: 45 + Math.random() * 15, points: 1 }
+  } else {
+    // Large
+    return { radius: 65 + Math.random() * 15, points: 1 }
+  }
+}
+
 export function makeCloud(canvasWidth, canvasHeight, spreadX = true) {
-  const radius = 45 + Math.random() * 30
+  const { radius, points } = sizeConfig()
   const x = spreadX
     ? radius + Math.random() * (canvasWidth - radius * 2)
     : canvasWidth + radius
   const baseY = radius + Math.random() * (canvasHeight * 0.55 - radius)
+  const baseVx = 0.2 + Math.random() * 0.3
   return {
     id: nextId++,
     x,
     y: baseY,
     baseY,
-    vx: 0.2 + Math.random() * 0.3,
+    vx: baseVx,
+    baseVx,
     colour: pastelColour(),
     radius,
+    points,
     state: 'alive',
     animProgress: 0,
     particles: [],
@@ -33,9 +50,9 @@ function drawCloudShape(ctx, cloud) {
   const { x, y, radius, colour } = cloud
   ctx.fillStyle = colour
   const blobs = [
-    { dx: 0,         dy: 0,          r: radius },
-    { dx: -radius * 0.55, dy: radius * 0.15, r: radius * 0.72 },
-    { dx:  radius * 0.55, dy: radius * 0.15, r: radius * 0.72 },
+    { dx: 0,              dy: 0,              r: radius },
+    { dx: -radius * 0.55, dy: radius * 0.15,  r: radius * 0.72 },
+    { dx:  radius * 0.55, dy: radius * 0.15,  r: radius * 0.72 },
     { dx: -radius * 0.25, dy: -radius * 0.45, r: radius * 0.65 },
     { dx:  radius * 0.3,  dy: -radius * 0.35, r: radius * 0.6  },
   ]
@@ -46,10 +63,10 @@ function drawCloudShape(ctx, cloud) {
   })
 }
 
-export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight) {
+export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight, speedMult = 1) {
   for (const c of clouds) {
     if (c.state === 'alive') {
-      c.x += c.vx
+      c.x += c.baseVx * speedMult
       if (c.x - c.radius > canvasWidth) c.x = -c.radius
       c.y = c.baseY + Math.sin(time * 0.8 + c.id) * 8
     } else if (c.state === 'poofing' || c.state === 'exploding') {

@@ -54,3 +54,64 @@ html, body, #root {
 .add-cloud-btn:active {
   transform: translateX(-50%) scale(0.96);
 }
+
+.share-btn {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  cursor: pointer;
+  touch-action: manipulation;
+  z-index: 10;
+  font-family: system-ui, sans-serif;
+  white-space: nowrap;
+}
+
+.share-btn:active {
+  transform: translateX(-50%) scale(0.96);
+}
+
+.nudge-bar {
+  position: fixed;
+  bottom: 90px;
+  left: 0;
+  right: 0;
+  background: white;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  padding: 14px 16px 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 20;
+  font-family: system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+
+.nudge-text {
+  line-height: 1.4;
+  color: #333;
+}
+
+.nudge-sub {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.nudge-dismiss {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}

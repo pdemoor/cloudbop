@@ -1,4 +1,5 @@
-const POOL = ['🦋','🦜','🦅','🦆','🐦','🦉','🦚','🦩','🐉','🦄','🧚','🦇','🪶']
+const COMMON = ['🦋','🦜','🦆','🐦','🦉','🦚','🦩','🦇','🪶']
+const RARE   = ['🐉','🦄','🧚']
 const SIZE = 44
 let nextAnimalId = 0
 
@@ -8,14 +9,18 @@ export function spawnAnimal(canvasWidth, canvasHeight) {
   const fromLeft = Math.random() < 0.5
   const y = rand(canvasHeight * 0.05, canvasHeight * 0.6)
   const duration = rand(4000, 6000)
+  const isRare = Math.random() < 0.2
+  const pool = isRare ? RARE : COMMON
   return {
     id: nextAnimalId++,
-    emoji: POOL[Math.floor(Math.random() * POOL.length)],
+    emoji: pool[Math.floor(Math.random() * pool.length)],
     x: fromLeft ? -SIZE : canvasWidth + SIZE,
     y,
     vx: fromLeft ? canvasWidth / (duration / 16) : -(canvasWidth / (duration / 16)),
     size: SIZE,
     alive: true,
+    rare: isRare,
+    points: isRare ? 3 : 1,
     particles: [],
   }
 }
@@ -74,8 +79,9 @@ export function hitTestAnimal(animal, px, py) {
 
 export function bopAnimal(animal) {
   animal.alive = false
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2
+  const count = animal.rare ? 12 : 6
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2
     const speed = 2 + Math.random() * 4
     animal.particles.push({
       x: animal.x, y: animal.y,
