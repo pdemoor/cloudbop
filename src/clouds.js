@@ -19,12 +19,14 @@ function sizeConfig() {
   }
 }
 
-export function makeCloud(canvasWidth, canvasHeight, spreadX = true) {
+export function makeCloud(canvasWidth, canvasHeight, spreadX = true, topMargin = 0, bottomMargin = 0) {
   const { radius, points } = sizeConfig()
   const x = spreadX
     ? radius + Math.random() * (canvasWidth - radius * 2)
     : canvasWidth + radius
-  const baseY = radius + Math.random() * (canvasHeight * 0.55 - radius)
+  const minY   = topMargin + radius
+  const maxY   = canvasHeight - bottomMargin - radius
+  const baseY  = minY + Math.random() * Math.max(0, maxY - minY)
   const baseVx = 0.2 + Math.random() * 0.3
   return {
     id: nextId++,
@@ -42,8 +44,8 @@ export function makeCloud(canvasWidth, canvasHeight, spreadX = true) {
   }
 }
 
-export function spawnCloud(canvasWidth, canvasHeight) {
-  return makeCloud(canvasWidth, canvasHeight, true)
+export function spawnCloud(canvasWidth, canvasHeight, topMargin = 0, bottomMargin = 0) {
+  return makeCloud(canvasWidth, canvasHeight, true, topMargin, bottomMargin)
 }
 
 function drawCloudShape(ctx, cloud) {
@@ -63,12 +65,14 @@ function drawCloudShape(ctx, cloud) {
   })
 }
 
-export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight, speedMult = 1) {
+export function updateClouds(clouds, dt, time, canvasWidth, canvasHeight, speedMult = 1, topMargin = 0, bottomMargin = 0) {
   for (const c of clouds) {
     if (c.state === 'alive') {
       c.x += c.baseVx * speedMult
       if (c.x - c.radius > canvasWidth) c.x = -c.radius
-      c.y = c.baseY + Math.sin(time * 0.8 + c.id) * 8
+      const bobbedY = c.baseY + Math.sin(time * 0.8 + c.id) * 8
+      c.y = Math.max(topMargin + c.radius,
+             Math.min(canvasHeight - bottomMargin - c.radius, bobbedY))
     } else if (c.state === 'poofing' || c.state === 'exploding') {
       c.animProgress += dt / 400
       if (c.animProgress >= 1) c.state = 'dead'

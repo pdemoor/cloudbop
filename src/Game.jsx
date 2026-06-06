@@ -22,6 +22,10 @@ const COMBO_WINDOW          = 1500
 const TIMER_DURATION        = 60000
 const NUDGE_COOLDOWN        = 24 * 60 * 60 * 1000
 
+// Safe play area — keep clouds and animals out of UI chrome
+const TOP_MARGIN    = 90   // px — clouds and animals stay below this
+const BOTTOM_MARGIN = 130  // px — clouds and animals stay above this
+
 function makeLabel(x, y, text, colour, fontSize, duration) {
   return { x, y, text, colour, fontSize, duration, startTime: performance.now() }
 }
@@ -95,7 +99,7 @@ export default function Game() {
     const w = window.innerWidth
     const h = window.innerHeight
     const s = stateRef.current
-    for (let i = 0; i < 5; i++) s.clouds.push(makeCloud(w, h, true))
+    for (let i = 0; i < 5; i++) s.clouds.push(makeCloud(w, h, true, TOP_MARGIN, BOTTOM_MARGIN))
 
     window.addEventListener('resize', resizeCanvas)
     getDailyBest().then(best => setDailyBest(best))
@@ -390,7 +394,9 @@ export default function Game() {
 
   // ── Add cloud ─────────────────────────────────────────────────────────────
   const addCloud = useCallback(() => {
-    stateRef.current.clouds.push(spawnCloud(window.innerWidth, window.innerHeight))
+    stateRef.current.clouds.push(
+      spawnCloud(window.innerWidth, window.innerHeight, TOP_MARGIN, BOTTOM_MARGIN)
+    )
   }, [])
 
   // ── Share handlers ────────────────────────────────────────────────────────
@@ -463,10 +469,10 @@ export default function Game() {
 
     if (!t.ended) {
       if (now - s.lastAnimalSpawn > s.animalInterval) {
-        s.animals.push(spawnAnimal(w, h))
+        s.animals.push(spawnAnimal(w, h, TOP_MARGIN, BOTTOM_MARGIN))
         s.lastAnimalSpawn = now
       }
-      s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult)
+      s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult, TOP_MARGIN, BOTTOM_MARGIN)
       s.animals = updateAnimals(s.animals, w)
     }
 
@@ -603,7 +609,7 @@ export default function Game() {
 
       {/* Daily Comp button */}
       {showTimerBtn && (
-        <button className="timer-btn" onClick={startTimer}>
+        <button id="daily-comp-btn" className="timer-btn" onClick={startTimer}>
           🏆 Daily Comp (1 min)
         </button>
       )}

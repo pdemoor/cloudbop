@@ -187,11 +187,12 @@ html, body, #root {
   background: #888;
 }
 
-/* ── Logo overlay ── */
+/* ── Logo overlay — top centre ── */
 #game-logo {
   position: fixed;
   top: 12px;
-  left: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -200,11 +201,8 @@ html, body, #root {
   z-index: 10;
 }
 
-/* ── Timer mode button ── */
+/* ── Daily Comp button — top left, aligned with score ── */
 .timer-btn {
-  position: fixed;
-  top: 72px;
-  left: 12px;
   background: white;
   border: none;
   border-radius: 999px;
@@ -219,17 +217,23 @@ html, body, #root {
   font-family: system-ui, sans-serif;
 }
 
+#daily-comp-btn {
+  position: fixed;
+  top: 16px;
+  left: 12px;
+}
+
 .timer-btn:active {
   transform: scale(0.95);
 }
 
-/* ── 24hr best display ── */
+/* ── 24hr best display — below Daily Comp button ── */
 #daily-best {
   position: fixed;
-  top: 118px;
-  left: 0;
-  width: 120px;
-  text-align: center;
+  top: 58px;
+  left: 12px;
+  width: 140px;
+  text-align: left;
   font-size: 0.72rem;
   font-weight: 700;
   font-family: Arial, Helvetica, sans-serif;

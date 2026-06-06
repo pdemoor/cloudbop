@@ -5,9 +5,11 @@ let nextAnimalId = 0
 
 function rand(min, max) { return min + Math.random() * (max - min) }
 
-export function spawnAnimal(canvasWidth, canvasHeight) {
+export function spawnAnimal(canvasWidth, canvasHeight, topMargin = 0, bottomMargin = 0) {
   const fromLeft = Math.random() < 0.5
-  const y = rand(canvasHeight * 0.05, canvasHeight * 0.6)
+  const minY = topMargin + 30
+  const maxY = canvasHeight - bottomMargin - 30
+  const y = minY + Math.random() * Math.max(0, maxY - minY)
   const duration = rand(4000, 6000)
   const isRare = Math.random() < 0.2
   const pool = isRare ? RARE : COMMON
