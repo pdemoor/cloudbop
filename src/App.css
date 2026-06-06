@@ -33,26 +33,30 @@ html, body, #root {
   inset: 0;
 }
 
-.add-cloud-btn {
+/* ── Add-cloud FAB ── */
+#add-cloud-btn {
   position: fixed;
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
-  background: white;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #FFB6C1;
   border: none;
-  border-radius: 999px;
-  padding: 14px 32px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  font-size: 2rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
   cursor: pointer;
   touch-action: manipulation;
   z-index: 10;
-  font-family: system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
 }
 
-.add-cloud-btn:active {
-  transform: translateX(-50%) scale(0.96);
+#add-cloud-btn:active {
+  transform: translateX(-50%) scale(0.92);
 }
 
 .share-btn {
@@ -152,6 +156,38 @@ html, body, #root {
   transform: scale(0.95);
 }
 
+/* ── 24hr best display ── */
+#daily-best {
+  position: fixed;
+  top: 118px;
+  left: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Already-played-today toast ── */
+#comp-played-msg {
+  position: fixed;
+  top: 140px;
+  left: 12px;
+  background: rgba(0,0,0,0.72);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 12px;
+  z-index: 20;
+  max-width: 220px;
+  line-height: 1.4;
+  pointer-events: none;
+  font-family: system-ui, sans-serif;
+}
+
 /* ── Timer results overlay ── */
 #timer-results {
   position: fixed;
@@ -232,4 +268,25 @@ html, body, #root {
   cursor: pointer;
   touch-action: manipulation;
   font-family: system-ui, sans-serif;
+}
+
+/* ── Results daily best section ── */
+.results-daily-best {
+  border-top: 1px solid #eee;
+  margin: 16px 0;
+  padding-top: 16px;
+}
+
+.results-daily-label {
+  font-size: 0.8rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.results-daily-score {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: #1AADDF;
 }

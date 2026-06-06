@@ -9,6 +9,10 @@ import {
   hitTestAnimal, bopAnimal,
 } from './animals.js'
 import { drawScore, drawFloatingLabels } from './scorer.js'
+import {
+  submitDailyScore, getDailyBest,
+  hasPlayedToday, markPlayedToday,
+} from './supabase.js'
 
 const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
@@ -23,13 +27,15 @@ export default function Game() {
   const canvasRef = useRef(null)
 
   // ── React state (drives HTML elements only) ───────────────────────────────
-  const [showShare, setShowShare]           = useState(false)
-  const [shareCopied, setShareCopied]       = useState(false)
-  const [showNudge, setShowNudge]           = useState(false)
-  const [showTimerBtn, setShowTimerBtn]     = useState(true)
-  const [showResults, setShowResults]       = useState(false)
-  const [resultScore, setResultScore]       = useState(0)
-  const [resultShareCopied, setResultShareCopied] = useState(false)
+  const [showShare, setShowShare]                   = useState(false)
+  const [shareCopied, setShareCopied]               = useState(false)
+  const [showNudge, setShowNudge]                   = useState(false)
+  const [showTimerBtn, setShowTimerBtn]             = useState(true)
+  const [showResults, setShowResults]               = useState(false)
+  const [resultScore, setResultScore]               = useState(0)
+  const [resultShareCopied, setResultShareCopied]   = useState(false)
+  const [dailyBest, setDailyBest]                   = useState(null)
+  const [compPlayedToday, setCompPlayedToday]       = useState(false)
 
   // ── Game state ref (game-loop mutable, no re-renders) ─────────────────────
   const stateRef = useRef({
@@ -89,6 +95,9 @@ export default function Game() {
 
     window.addEventListener('resize', resizeCanvas)
 
+    // Fetch 24hr best on load
+    getDailyBest().then(best => setDailyBest(best))
+
     // iOS nudge — 30 seconds, once
     const isStandalone =
       window.navigator.standalone === true ||
@@ -138,6 +147,13 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
+    // One-play-per-day gate
+    if (hasPlayedToday()) {
+      setCompPlayedToday(true)
+      setTimeout(() => setCompPlayedToday(false), 4000)
+      return
+    }
+
     const s = stateRef.current
     const t = timerRef.current
 
@@ -166,17 +182,31 @@ export default function Game() {
     setShowTimerBtn(false)
     setShowResults(false)
     setShowShare(false)
+    setCompPlayedToday(false)
   }, [])
 
   // Wire up end-timer callback (called from game loop)
   endTimerCallbackRef.current = useCallback(() => {
     const s = stateRef.current
-    setResultScore(s.score)
+    const finalScore = s.score
+
+    setResultScore(finalScore)
+
     // Update high score if beaten
-    if (s.score > s.highScore) {
-      s.highScore = s.score
+    if (finalScore > s.highScore) {
+      s.highScore = finalScore
       localStorage.setItem('cloudbop_high', s.highScore)
     }
+
+    // Submit to leaderboard and mark today as played
+    submitDailyScore(finalScore)
+    markPlayedToday()
+
+    // Refresh 24hr best after submit (slight delay to let insert land)
+    setTimeout(() => {
+      getDailyBest().then(best => setDailyBest(best))
+    }, 800)
+
     setShowResults(true)
     setShowTimerBtn(false)
   }, [])
@@ -316,13 +346,14 @@ export default function Game() {
   const handleShare = useCallback(() => {
     const s = stateRef.current
     const trophyCount = Math.min(Math.floor(s.score / 100), 5)
-    const text = `I scored ${s.score} on cloudbop.com! ${'🏆'.repeat(trophyCount)}`
+    const trophyStr = '🏆'.repeat(trophyCount)
+    const text = `I scored ${s.score} in the Cloud Bop Daily Comp! ${trophyStr} Can you beat it? https://www.cloudbop.com`
     if (navigator.share) {
-      navigator.share({ text, url: 'https://www.cloudbop.com' })
+      navigator.share({ title: 'Cloud Bop', text })
         .then(() => setShowShare(false))
         .catch(() => {})
     } else {
-      navigator.clipboard.writeText(`${text} https://www.cloudbop.com`)
+      navigator.clipboard.writeText(text)
       setShareCopied(true)
       setTimeout(() => { setShareCopied(false); setShowShare(false) }, 1500)
     }
@@ -331,15 +362,14 @@ export default function Game() {
 
   // ── Results share handler ─────────────────────────────────────────────────
   const handleResultShare = useCallback(() => {
-    // resultScore captured in React state is the score at timer end
-    const score = stateRef.current.score  // still current (hasn't been reset)
+    const score = stateRef.current.score
     const trophyCount = Math.min(Math.floor(score / 100), 5)
-    const trophyStr = '🏆'.repeat(trophyCount) || 'none'
-    const text = `I scored ${score} points in 1 minute on Cloud Bop! ${trophyStr}`
+    const trophyStr = '🏆'.repeat(trophyCount)
+    const text = `I scored ${score} in the Cloud Bop Daily Comp! ${trophyStr} Can you beat it? https://www.cloudbop.com`
     if (navigator.share) {
       navigator.share({ title: 'Cloud Bop', text, url: 'https://www.cloudbop.com' }).catch(() => {})
     } else {
-      navigator.clipboard.writeText(`${text} https://www.cloudbop.com`)
+      navigator.clipboard.writeText(text)
       setResultShareCopied(true)
       setTimeout(() => setResultShareCopied(false), 2000)
     }
@@ -455,7 +485,7 @@ export default function Game() {
       if (t.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 59, 48, ${t.flashAlpha})`
         ctx.fillRect(0, 0, w, h)
-        t.flashAlpha = Math.max(0, t.flashAlpha - 0.0125) // ~200ms fade at 60fps
+        t.flashAlpha = Math.max(0, t.flashAlpha - 0.0125)
       }
 
       if (t.active) {
@@ -488,22 +518,44 @@ export default function Game() {
         onPointerCancel={onPointerUp}
       />
 
+      {/* Daily Comp button */}
       {showTimerBtn && (
         <button className="timer-btn" onClick={startTimer}>
-          ⏱ 1 Min
+          🏆 Daily Comp (1 min)
         </button>
       )}
 
-      <button className="add-cloud-btn" onClick={addCloud}>
-        ☁️ Add
+      {/* 24hr best below the comp button */}
+      {showTimerBtn && (
+        <div id="daily-best">
+          {dailyBest !== null ? `24hr best: ${dailyBest}` : '24hr best: —'}
+        </div>
+      )}
+
+      {/* Already-played-today message */}
+      {compPlayedToday && (
+        <div id="comp-played-msg">
+          You've played today's Daily Comp.<br />Come back tomorrow! ☀️
+        </div>
+      )}
+
+      {/* Add-cloud FAB */}
+      <button
+        id="add-cloud-btn"
+        onClick={addCloud}
+        aria-label="Add cloud"
+      >
+        ☁️
       </button>
 
+      {/* Free-play share button (trophy milestone) */}
       {showShare && (
         <button className="share-btn" onClick={handleShare}>
           {shareCopied ? 'Copied! ✓' : 'Share my score 🏆'}
         </button>
       )}
 
+      {/* iOS nudge */}
       {showNudge && (
         <div className="nudge-bar">
           <span className="nudge-text">
@@ -514,6 +566,7 @@ export default function Game() {
         </div>
       )}
 
+      {/* Timer results overlay */}
       {showResults && (
         <div id="timer-results">
           <div className="results-inner">
@@ -521,6 +574,12 @@ export default function Game() {
             <p className="results-score">{resultScore}</p>
             <p className="results-label">points</p>
             <p className="results-trophies">{'🏆'.repeat(trophyCount)}</p>
+            <div className="results-daily-best">
+              <p className="results-daily-label">24hr best score</p>
+              <p className="results-daily-score">
+                {dailyBest !== null ? dailyBest : '—'}
+              </p>
+            </div>
             <div className="results-buttons">
               <button id="results-share" onClick={handleResultShare}>
                 {resultShareCopied ? 'Copied! ✓' : '📸 Share Result'}
