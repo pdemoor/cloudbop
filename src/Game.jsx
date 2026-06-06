@@ -610,7 +610,7 @@ export default function Game() {
       {/* Daily Comp button */}
       {showTimerBtn && (
         <button id="daily-comp-btn" className="timer-btn" onClick={startTimer}>
-          🏆 Daily Comp (1 min)
+          🏆 Daily Comp
         </button>
       )}
 

@@ -15,19 +15,33 @@ function shadeColour(hslStr, percent) {
 }
 
 // Draw a single cloud blob with a radial gradient for a 3D lit look
-function drawCloudBlob(ctx, x, y, r, colour) {
+function drawCloudBlob(ctx, bx, by, br, colour) {
   const gradient = ctx.createRadialGradient(
-    x - r * 0.3, y - r * 0.3, r * 0.05,  // highlight inner (top-left)
-    x, y, r                                 // outer edge
+    bx - br * 0.3, by - br * 0.35, br * 0.05,  // highlight (top-left)
+    bx, by, br                                   // outer edge
   )
-  gradient.addColorStop(0,    'rgba(255, 255, 255, 0.95)')
-  gradient.addColorStop(0.45, colour)
-  gradient.addColorStop(1,    shadeColour(colour, -12))
+  gradient.addColorStop(0,   'rgba(255, 255, 255, 0.98)')
+  gradient.addColorStop(0.5, colour)
+  gradient.addColorStop(1,   shadeColour(colour, -10))
 
   ctx.beginPath()
-  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.arc(bx, by, br, 0, Math.PI * 2)
   ctx.fillStyle = gradient
   ctx.fill()
+}
+
+// Wide cloud silhouette: flat-ish base, 3 bumpy humps on top
+function getCloudBlobs(cx, cy, r) {
+  return [
+    // Bottom row — flat base
+    { x: cx - r * 0.85, y: cy + r * 0.25, r: r * 0.62 },
+    { x: cx,            y: cy + r * 0.28, r: r * 0.68 },
+    { x: cx + r * 0.85, y: cy + r * 0.25, r: r * 0.62 },
+    // Top row — bumps
+    { x: cx - r * 0.72, y: cy - r * 0.12, r: r * 0.58 },
+    { x: cx,            y: cy - r * 0.32, r: r * 0.72 }, // tallest centre bump
+    { x: cx + r * 0.68, y: cy - r * 0.08, r: r * 0.54 },
+  ]
 }
 
 function sizeConfig() {
@@ -70,41 +84,39 @@ export function spawnCloud(canvasWidth, canvasHeight, topMargin = 0, bottomMargi
   return makeCloud(canvasWidth, canvasHeight, true, topMargin, bottomMargin)
 }
 
-function drawCloudShape(ctx, cloud) {
+function drawCloud(ctx, cloud) {
   const { x, y, radius, colour } = cloud
+  const blobs = getCloudBlobs(x, y, radius)
 
-  // Drop shadow for the whole cloud
-  ctx.shadowColor   = 'rgba(100, 120, 160, 0.28)'
-  ctx.shadowBlur    = 18
-  ctx.shadowOffsetX = 4
-  ctx.shadowOffsetY = 6
+  // Drop shadow on bottom row to ground the cloud
+  ctx.shadowColor   = 'rgba(100, 120, 160, 0.25)'
+  ctx.shadowBlur    = 16
+  ctx.shadowOffsetX = 3
+  ctx.shadowOffsetY = 5
 
-  const blobs = [
-    { dx: 0,              dy: 0,              r: radius },
-    { dx: -radius * 0.55, dy: radius * 0.15,  r: radius * 0.72 },
-    { dx:  radius * 0.55, dy: radius * 0.15,  r: radius * 0.72 },
-    { dx: -radius * 0.25, dy: -radius * 0.45, r: radius * 0.65 },
-    { dx:  radius * 0.3,  dy: -radius * 0.35, r: radius * 0.6  },
-  ]
-  blobs.forEach(b => drawCloudBlob(ctx, x + b.dx, y + b.dy, b.r, colour))
+  // Bottom row first (flat base, indices 0–2)
+  blobs.slice(0, 3).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
 
-  // Reset shadow before bottom shading (avoid double shadow)
+  // Reset shadow so top bumps don't double-shadow
   ctx.shadowColor   = 'transparent'
   ctx.shadowBlur    = 0
   ctx.shadowOffsetX = 0
   ctx.shadowOffsetY = 0
 
-  // Soft bottom-edge anchor shadow
-  const bottomGrad = ctx.createRadialGradient(
-    x, y + radius * 0.6, radius * 0.2,
-    x, y + radius * 0.6, radius * 1.1
+  // Top bumps on top (indices 3–5)
+  blobs.slice(3).forEach(b => drawCloudBlob(ctx, b.x, b.y, b.r, colour))
+
+  // Subtle anchor shadow at the base
+  const anchorGrad = ctx.createRadialGradient(
+    x, y + radius * 0.5, radius * 0.1,
+    x, y + radius * 0.5, radius * 1.0
   )
-  bottomGrad.addColorStop(0, 'rgba(100, 120, 180, 0.0)')
-  bottomGrad.addColorStop(1, 'rgba(80, 100, 160, 0.13)')
+  anchorGrad.addColorStop(0, 'rgba(80, 100, 160, 0.10)')
+  anchorGrad.addColorStop(1, 'rgba(80, 100, 160, 0.0)')
 
   ctx.beginPath()
-  ctx.ellipse(x, y + radius * 0.5, radius * 1.1, radius * 0.5, 0, 0, Math.PI)
-  ctx.fillStyle = bottomGrad
+  ctx.ellipse(x, y + radius * 0.45, radius * 1.05, radius * 0.38, 0, 0, Math.PI)
+  ctx.fillStyle = anchorGrad
   ctx.fill()
 }
 
@@ -136,7 +148,7 @@ export function drawClouds(ctx, clouds) {
   for (const c of clouds) {
     if (c.state === 'alive') {
       ctx.globalAlpha = 1
-      drawCloudShape(ctx, c)
+      drawCloud(ctx, c)
     } else if (c.state === 'poofing') {
       const scale = 1 - c.animProgress * 0.6
       const alpha = 1 - c.animProgress
@@ -145,7 +157,7 @@ export function drawClouds(ctx, clouds) {
       ctx.translate(c.x, c.y)
       ctx.scale(scale, scale)
       ctx.translate(-c.x, -c.y)
-      drawCloudShape(ctx, c)
+      drawCloud(ctx, c)
       ctx.restore()
     }
 
@@ -273,5 +285,5 @@ export function hitTest(cloud, px, py) {
   if (cloud.state !== 'alive') return false
   const dx = cloud.x - px
   const dy = cloud.y - py
-  return Math.sqrt(dx * dx + dy * dy) < cloud.radius * 1.3
+  return Math.sqrt(dx * dx + dy * dy) < cloud.radius * 1.5
 }
