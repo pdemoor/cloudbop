@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL     = 'https://oqxjclyotquyhuscciiw.supabase.co';
+const SUPABASE_URL      = 'https://oqxjclyotquyhuscciiw.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_eO8R92a_GeSPV40wkarJsA_GTVN8eoS';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -18,24 +18,26 @@ export function getPlayerId() {
 
 // ── Score helpers ────────────────────────────────────────────────────────────
 
-export async function submitDailyScore(score) {
+export async function submitDailyScore(score, initials = null) {
   const player_id = getPlayerId();
+  const payload = { player_id, score };
+  if (initials) payload.initials = initials.toUpperCase().slice(0, 3);
   const { error } = await supabase
     .from('daily_scores')
-    .insert({ player_id, score });
+    .insert(payload);
   if (error) console.error('Score submit error:', error);
 }
 
-export async function getTop5Daily() {
+export async function getTopDaily() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('daily_scores')
-    .select('score')
+    .select('score, initials')
     .gte('created_at', since)
     .order('score', { ascending: false })
-    .limit(5);
-  if (error) { console.error('Top 5 error:', error); return []; }
-  return data?.map(r => r.score) ?? [];
+    .limit(100);
+  if (error) { console.error('Leaderboard error:', error); return []; }
+  return data ?? [];
 }
 
 export async function getDailyBest() {
@@ -46,7 +48,7 @@ export async function getDailyBest() {
     .gte('created_at', since)
     .order('score', { ascending: false })
     .limit(1);
-  if (error) { console.error('Leaderboard error:', error); return null; }
+  if (error) { console.error('Best score error:', error); return null; }
   return data?.[0]?.score ?? null;
 }
 

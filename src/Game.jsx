@@ -10,17 +10,17 @@ import {
 } from './animals.js'
 import { drawScore, drawFloatingLabels } from './scorer.js'
 import {
-  submitDailyScore, getDailyBest, getTop5Daily,
+  submitDailyScore, getDailyBest, getTopDaily,
   hasPlayedToday, markPlayedToday,
 } from './supabase.js'
 import { play, toggleMute } from './sounds.js'
-import { getSecondsUntil5am, formatCountdown } from './utils.js'
+import { getSecondsUntil5am, formatCountdown, getTrophyCount } from './utils.js'
 
 const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
-const COMBO_WINDOW          = 1500   // ms between taps to keep combo
-const TIMER_DURATION        = 60000  // 1 minute in ms
-const NUDGE_COOLDOWN        = 24 * 60 * 60 * 1000  // 24 hours
+const COMBO_WINDOW          = 1500
+const TIMER_DURATION        = 60000
+const NUDGE_COOLDOWN        = 24 * 60 * 60 * 1000
 
 function makeLabel(x, y, text, colour, fontSize, duration) {
   return { x, y, text, colour, fontSize, duration, startTime: performance.now() }
@@ -29,7 +29,7 @@ function makeLabel(x, y, text, colour, fontSize, duration) {
 export default function Game() {
   const canvasRef = useRef(null)
 
-  // ── React state (drives HTML elements only) ───────────────────────────────
+  // ── React state ───────────────────────────────────────────────────────────
   const [showShare, setShowShare]                   = useState(false)
   const [shareCopied, setShareCopied]               = useState(false)
   const [showNudge, setShowNudge]                   = useState(false)
@@ -40,13 +40,17 @@ export default function Game() {
   const [dailyBest, setDailyBest]                   = useState(null)
   const [muted, setMuted]                           = useState(false)
 
-  // Lockout popup state
+  // Lockout popup
   const [showLockout, setShowLockout]               = useState(false)
   const [lockoutScore, setLockoutScore]             = useState(0)
-  const [top5, setTop5]                             = useState([])
+  const [leaderboard, setLeaderboard]               = useState([])
   const [countdown, setCountdown]                   = useState('')
 
-  // ── Game state ref (game-loop mutable, no re-renders) ─────────────────────
+  // Initials entry
+  const [showInitialsEntry, setShowInitialsEntry]   = useState(false)
+  const [playerInitials, setPlayerInitials]         = useState('')
+
+  // ── Game state ref ────────────────────────────────────────────────────────
   const stateRef = useRef({
     clouds: [],
     animals: [],
@@ -55,33 +59,24 @@ export default function Game() {
     lastAnimalSpawn: 0,
     pointer: null,
 
-    // combo
     comboCount: 0,
     lastTapTime: 0,
 
-    // speed ramp
     speedMult: 1,
     animalInterval: ANIMAL_INTERVAL_START,
     lastRampThreshold: 0,
 
-    // floating labels
     floatingLabels: [],
-
-    // screen shake
     shakeFrames: 0,
 
-    // trophy flash
     trophyFlash: null,
-    lastTrophyThreshold: 0,
+    lastTrophyCount: 0,   // tracks getTrophyCount(score) milestones
 
-    // rare glow
     rareGlow: null,
-
-    // share button auto-hide timer
     shareHideTimer: null,
   })
 
-  // ── Timer ref (game-loop readable, avoids stale React state) ─────────────
+  // ── Timer ref ─────────────────────────────────────────────────────────────
   const timerRef = useRef({
     active: false,
     ended: false,
@@ -92,7 +87,6 @@ export default function Game() {
     flashAlpha: 0,
   })
 
-  // Stable ref to endTimer callback so game loop can call it without closure staleness
   const endTimerCallbackRef = useRef(null)
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -104,11 +98,8 @@ export default function Game() {
     for (let i = 0; i < 5; i++) s.clouds.push(makeCloud(w, h, true))
 
     window.addEventListener('resize', resizeCanvas)
-
-    // Fetch 24hr best on load
     getDailyBest().then(best => setDailyBest(best))
 
-    // iOS nudge — 15 seconds, with 24hr cooldown
     const isStandalone =
       window.navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches
@@ -126,14 +117,12 @@ export default function Game() {
     }
   }, [])
 
-  // Auto-dismiss nudge after 5s when it appears
   useEffect(() => {
     if (!showNudge) return
     const t = setTimeout(() => dismissNudge(), 5000)
     return () => clearTimeout(t)
   }, [showNudge])
 
-  // Live countdown tick while lockout popup is open
   useEffect(() => {
     if (!showLockout) return
     const interval = setInterval(() => {
@@ -149,7 +138,7 @@ export default function Game() {
     canvas.height = window.innerHeight
   }
 
-  // ── Score / ramp helpers ──────────────────────────────────────────────────
+  // ── Trophy / ramp helpers ─────────────────────────────────────────────────
   function checkRamp(s) {
     const tier = Math.floor(s.score / 50)
     if (tier > s.lastRampThreshold) {
@@ -160,11 +149,10 @@ export default function Game() {
   }
 
   function checkTrophy(s, now) {
-    // Suppress v2 share button in timer mode (results screen handles sharing)
     if (timerRef.current.active) return
-    const threshold = Math.floor(s.score / 100) * 100
-    if (threshold > 0 && threshold > s.lastTrophyThreshold) {
-      s.lastTrophyThreshold = threshold
+    const newCount = getTrophyCount(s.score)
+    if (newCount > s.lastTrophyCount) {
+      s.lastTrophyCount = newCount
       s.trophyFlash = { startTime: now, duration: 800 }
       play('trophy')
 
@@ -176,7 +164,6 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
-    // One-play-per-day gate — show lockout popup instead of toast
     if (hasPlayedToday()) {
       const savedScore = parseInt(
         localStorage.getItem('cloudbop_last_comp_score') || '0'
@@ -184,28 +171,26 @@ export default function Game() {
       setLockoutScore(savedScore)
       setShowLockout(true)
       setCountdown(formatCountdown(getSecondsUntil5am()))
-      getTop5Daily().then(scores => setTop5(scores))
+      getTopDaily().then(rows => setLeaderboard(rows))
       return
     }
 
     const s = stateRef.current
     const t = timerRef.current
 
-    // Reset game state for a clean run
-    s.score               = 0
-    s.comboCount          = 0
-    s.lastTapTime         = 0
-    s.lastRampThreshold   = 0
-    s.speedMult           = 1
-    s.animalInterval      = ANIMAL_INTERVAL_START
-    s.floatingLabels      = []
-    s.lastTrophyThreshold = 0
-    s.trophyFlash         = null
-    s.shakeFrames         = 0
-    s.rareGlow            = null
+    s.score             = 0
+    s.comboCount        = 0
+    s.lastTapTime       = 0
+    s.lastRampThreshold = 0
+    s.speedMult         = 1
+    s.animalInterval    = ANIMAL_INTERVAL_START
+    s.floatingLabels    = []
+    s.lastTrophyCount   = 0
+    s.trophyFlash       = null
+    s.shakeFrames       = 0
+    s.rareGlow          = null
     if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
 
-    // Reset timer
     t.active          = true
     t.ended           = false
     t.startTime       = performance.now()
@@ -219,37 +204,52 @@ export default function Game() {
     setShowTimerBtn(false)
     setShowResults(false)
     setShowShare(false)
+    setShowInitialsEntry(false)
+    setPlayerInitials('')
   }, [])
 
-  // Wire up end-timer callback (called from game loop)
-  endTimerCallbackRef.current = useCallback(() => {
+  // Async end-timer callback — checks leaderboard qualification before submitting
+  endTimerCallbackRef.current = async () => {
     const s = stateRef.current
     const finalScore = s.score
 
     setResultScore(finalScore)
 
-    // Update high score if beaten
     if (finalScore > s.highScore) {
       s.highScore = finalScore
       localStorage.setItem('cloudbop_high', s.highScore)
     }
 
-    // Submit to leaderboard, mark today played, save score for lockout display
-    submitDailyScore(finalScore)
-    markPlayedToday()
-    localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
-
-    // Refresh 24hr best after submit (slight delay to let insert land)
-    setTimeout(() => {
-      getDailyBest().then(best => setDailyBest(best))
-    }, 800)
-
-    // Win/lose fanfare
     play(finalScore > 50 ? 'timerWinEnd' : 'timerLoseEnd')
-
     setShowResults(true)
     setShowTimerBtn(false)
-  }, [])
+
+    // Check leaderboard qualification
+    try {
+      const lb = await getTopDaily()
+      const qualifies =
+        lb.length < 100 ||
+        finalScore > lb[lb.length - 1].score
+
+      if (qualifies) {
+        setShowInitialsEntry(true)
+      } else {
+        submitDailyScore(finalScore)
+        markPlayedToday()
+        localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
+      }
+
+      // Refresh 24hr best
+      setTimeout(() => {
+        getDailyBest().then(best => setDailyBest(best))
+      }, 800)
+    } catch {
+      // Network failure — submit without initials
+      submitDailyScore(finalScore)
+      markPlayedToday()
+      localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
+    }
+  }
 
   const playAgain = useCallback(() => {
     const t = timerRef.current
@@ -261,20 +261,22 @@ export default function Game() {
     t.lastFlashSecond = Infinity
 
     const s = stateRef.current
-    s.score               = 0
-    s.comboCount          = 0
-    s.lastRampThreshold   = 0
-    s.speedMult           = 1
-    s.animalInterval      = ANIMAL_INTERVAL_START
-    s.floatingLabels      = []
-    s.lastTrophyThreshold = 0
-    s.trophyFlash         = null
-    s.shakeFrames         = 0
-    s.rareGlow            = null
+    s.score             = 0
+    s.comboCount        = 0
+    s.lastRampThreshold = 0
+    s.speedMult         = 1
+    s.animalInterval    = ANIMAL_INTERVAL_START
+    s.floatingLabels    = []
+    s.lastTrophyCount   = 0
+    s.trophyFlash       = null
+    s.shakeFrames       = 0
+    s.rareGlow          = null
 
     setShowResults(false)
     setShowTimerBtn(true)
     setShowShare(false)
+    setShowInitialsEntry(false)
+    setPlayerInitials('')
   }, [])
 
   // ── Pointer handlers ──────────────────────────────────────────────────────
@@ -299,7 +301,6 @@ export default function Game() {
     const s = stateRef.current
     const t = timerRef.current
     if (!s.pointer) return
-    // Block taps when timer has ended (results screen is showing)
     if (t.ended) { s.pointer = null; return }
 
     const canvas = canvasRef.current
@@ -315,7 +316,6 @@ export default function Game() {
 
     let hit = false
 
-    // Animals first
     for (const a of s.animals) {
       if (hitTestAnimal(a, tx, ty)) {
         bopAnimal(a)
@@ -333,7 +333,6 @@ export default function Game() {
       }
     }
 
-    // Clouds
     if (!hit) {
       for (const c of s.clouds) {
         if (hitTest(c, tx, ty)) {
@@ -350,7 +349,6 @@ export default function Game() {
           const label = c.points === 2 ? '+2' : '+1'
           s.floatingLabels.push(makeLabel(tx, ty + 20, label, 'white', '1.2rem', 600))
 
-          // Combo
           if (now - s.lastTapTime < COMBO_WINDOW) {
             s.comboCount++
           } else {
@@ -373,7 +371,6 @@ export default function Game() {
       }
     }
 
-    // Update high score (only in free play; timer mode updates on end)
     if (!t.active && s.score > s.highScore) {
       s.highScore = s.score
       localStorage.setItem('cloudbop_high', s.highScore)
@@ -390,11 +387,10 @@ export default function Game() {
     stateRef.current.clouds.push(spawnCloud(window.innerWidth, window.innerHeight))
   }, [])
 
-  // ── Free-play share handler ───────────────────────────────────────────────
+  // ── Share handlers ────────────────────────────────────────────────────────
   const handleShare = useCallback(() => {
     const s = stateRef.current
-    const trophyCount = Math.min(Math.floor(s.score / 100), 5)
-    const trophyStr = '🏆'.repeat(trophyCount)
+    const trophyStr = '🏆'.repeat(getTrophyCount(s.score))
     const text = `I scored ${s.score} in the Cloud Bop Daily Comp! ${trophyStr} Can you beat it? https://www.cloudbop.com`
     if (navigator.share) {
       navigator.share({ title: 'Cloud Bop', text })
@@ -408,11 +404,9 @@ export default function Game() {
     if (stateRef.current.shareHideTimer) clearTimeout(stateRef.current.shareHideTimer)
   }, [])
 
-  // ── Results share handler ─────────────────────────────────────────────────
   const handleResultShare = useCallback(() => {
     const score = stateRef.current.score
-    const trophyCount = Math.min(Math.floor(score / 100), 5)
-    const trophyStr = '🏆'.repeat(trophyCount)
+    const trophyStr = '🏆'.repeat(getTrophyCount(score))
     const text = `I scored ${score} in the Cloud Bop Daily Comp! ${trophyStr} Can you beat it? https://www.cloudbop.com`
     if (navigator.share) {
       navigator.share({ title: 'Cloud Bop', text, url: 'https://www.cloudbop.com' }).catch(() => {})
@@ -439,18 +433,14 @@ export default function Game() {
     const s = stateRef.current
     const t = timerRef.current
 
-    // ── Timer logic ──────────────────────────────────────────────────────
     if (t.active) {
       const elapsed = now - t.startTime
       const secsLeft = Math.max(0, Math.ceil((TIMER_DURATION - elapsed) / 1000))
 
-      // Trigger per-second flash for last 5 seconds
       if (secsLeft <= 5 && secsLeft < t.lastFlashSecond) {
         t.lastFlashSecond = secsLeft
         t.flashAlpha = 0.15
       }
-
-      // Tick sound for last 10 seconds
       if (secsLeft <= 10 && secsLeft < t.lastTickSecond) {
         t.lastTickSecond = secsLeft
         play('timerTick')
@@ -465,7 +455,6 @@ export default function Game() {
       }
     }
 
-    // ── Updates (paused when timer has ended) ────────────────────────────
     if (!t.ended) {
       if (now - s.lastAnimalSpawn > s.animalInterval) {
         s.animals.push(spawnAnimal(w, h))
@@ -477,16 +466,12 @@ export default function Game() {
 
     s.floatingLabels = s.floatingLabels.filter(l => now - l.startTime < l.duration)
 
-    // ── Draw ─────────────────────────────────────────────────────────────
-
-    // Screen shake transform
     ctx.save()
     if (s.shakeFrames > 0) {
       ctx.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12)
       s.shakeFrames--
     }
 
-    // Background
     const grad = ctx.createLinearGradient(0, 0, 0, h)
     grad.addColorStop(0, '#1AADDF')
     grad.addColorStop(1, '#87CEEB')
@@ -497,7 +482,6 @@ export default function Game() {
     drawAnimals(ctx, s.animals)
     drawScore(ctx, s.score, s.highScore, w)
 
-    // Combo multiplier display
     if (s.comboCount >= 3) {
       ctx.save()
       ctx.font = 'bold 1rem system-ui'
@@ -512,7 +496,6 @@ export default function Game() {
 
     drawFloatingLabels(ctx, s.floatingLabels, now)
 
-    // Trophy flash overlay
     if (s.trophyFlash) {
       const elapsed = now - s.trophyFlash.startTime
       const tf = elapsed / s.trophyFlash.duration
@@ -534,7 +517,6 @@ export default function Game() {
       }
     }
 
-    // Rare glow border
     if (s.rareGlow) {
       const elapsed = now - s.rareGlow.startTime
       const rg = elapsed / s.rareGlow.duration
@@ -547,14 +529,12 @@ export default function Game() {
       }
     }
 
-    // Timer countdown display
     if (t.active || (t.ended && t.timeRemaining === 0)) {
       if (t.flashAlpha > 0) {
         ctx.fillStyle = `rgba(255, 59, 48, ${t.flashAlpha})`
         ctx.fillRect(0, 0, w, h)
         t.flashAlpha = Math.max(0, t.flashAlpha - 0.0125)
       }
-
       if (t.active) {
         ctx.save()
         ctx.font = 'bold 1.6rem system-ui'
@@ -568,11 +548,11 @@ export default function Game() {
       }
     }
 
-    ctx.restore() // end shake transform
+    ctx.restore()
   })
 
   // ── Render ────────────────────────────────────────────────────────────────
-  const trophyCount = Math.min(Math.floor(resultScore / 100), 5)
+  const trophyCount = getTrophyCount(resultScore)
 
   return (
     <>
@@ -585,7 +565,7 @@ export default function Game() {
         onPointerCancel={onPointerUp}
       />
 
-      {/* Mute button — top-right below score */}
+      {/* Mute button — bottom-right */}
       <button
         id="mute-btn"
         onClick={() => { const nowMuted = toggleMute(); setMuted(nowMuted) }}
@@ -604,7 +584,6 @@ export default function Game() {
         </button>
       )}
 
-      {/* 24hr best below the comp button */}
       {showTimerBtn && (
         <div id="daily-best">
           {dailyBest !== null ? `24hr best: ${dailyBest}` : '24hr best: —'}
@@ -612,15 +591,11 @@ export default function Game() {
       )}
 
       {/* Add-cloud FAB */}
-      <button
-        id="add-cloud-btn"
-        onClick={addCloud}
-        aria-label="Add cloud"
-      >
+      <button id="add-cloud-btn" onClick={addCloud} aria-label="Add cloud">
         ☁️
       </button>
 
-      {/* Free-play share button (trophy milestone) */}
+      {/* Free-play share */}
       {showShare && (
         <button className="share-btn" onClick={handleShare}>
           {shareCopied ? 'Copied! ✓' : 'Share my score 🏆'}
@@ -637,12 +612,11 @@ export default function Game() {
         </div>
       )}
 
-      {/* Daily Comp lockout popup */}
+      {/* Lockout popup */}
       {showLockout && (
         <div id="lockout-overlay">
           <div className="lockout-inner">
             <h2>You've played today! 🎉</h2>
-
             <p className="lockout-label">Your score</p>
             <p className="lockout-score">{lockoutScore}</p>
 
@@ -652,21 +626,33 @@ export default function Game() {
             </div>
 
             <div className="lockout-leaderboard">
-              <p className="lockout-lb-title">24hr Top 5</p>
-              {top5.length === 0 ? (
+              <p className="lockout-lb-title">24hr Top 100</p>
+              {leaderboard.length === 0 ? (
                 <p className="lockout-lb-empty">No scores yet</p>
               ) : (
-                <ol className="lockout-lb-list">
-                  {top5.map((score, i) => (
-                    <li
-                      key={i}
-                      className={`lockout-lb-item${i === 0 ? ' lockout-lb-first' : ''}`}
-                    >
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                      <span>{score}</span>
-                    </li>
-                  ))}
-                </ol>
+                <div className="lockout-lb-scroll">
+                  <ol className="lockout-lb-list">
+                    {leaderboard.map((entry, i) => (
+                      <li
+                        key={i}
+                        className={`lockout-lb-item${
+                          i === 0 ? ' lockout-lb-first'
+                          : i === 1 ? ' lockout-lb-second'
+                          : i === 2 ? ' lockout-lb-third'
+                          : ''
+                        }`}
+                      >
+                        <span className="lb-rank">
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                        </span>
+                        <span className="lb-initials">
+                          {entry.initials || '···'}
+                        </span>
+                        <span className="lb-score">{entry.score}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
             </div>
 
@@ -699,6 +685,54 @@ export default function Game() {
                 Play Again
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Initials entry — overlays results (z-index 70) */}
+      {showInitialsEntry && (
+        <div id="initials-overlay">
+          <div className="initials-inner">
+            <h2>🏆 You made the board!</h2>
+            <p className="initials-label">Enter your initials</p>
+            <input
+              id="initials-input"
+              type="text"
+              maxLength={3}
+              value={playerInitials}
+              onChange={e => {
+                const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
+                setPlayerInitials(val)
+              }}
+              placeholder="AAA"
+              autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <button
+              className="initials-submit"
+              disabled={playerInitials.length !== 3}
+              onClick={async () => {
+                await submitDailyScore(resultScore, playerInitials)
+                markPlayedToday()
+                localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
+                setShowInitialsEntry(false)
+              }}
+            >
+              Submit
+            </button>
+            <button
+              className="initials-skip"
+              onClick={() => {
+                submitDailyScore(resultScore)
+                markPlayedToday()
+                localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
+                setShowInitialsEntry(false)
+              }}
+            >
+              Skip
+            </button>
           </div>
         </div>
       )}

@@ -1,3 +1,9 @@
+const TROPHY_THRESHOLDS = [100, 1000, 5000, 10000, 50000]
+
+export function getTrophyCount(score) {
+  return TROPHY_THRESHOLDS.filter(t => score >= t).length
+}
+
 export function getSecondsUntil5am() {
   const now = new Date();
   const next5am = new Date();

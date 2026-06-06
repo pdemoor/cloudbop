@@ -1,3 +1,5 @@
+import { getTrophyCount } from './utils.js'
+
 export function drawScore(ctx, score, highScore, canvasWidth) {
   ctx.save()
   ctx.shadowColor = 'rgba(0,0,0,0.3)'
@@ -12,9 +14,9 @@ export function drawScore(ctx, score, highScore, canvasWidth) {
   ctx.font = '1rem system-ui'
   ctx.fillText(`Best: ${highScore}`, canvasWidth - 20, 58)
 
-  const trophyCount = Math.floor(score / 100)
+  const trophyCount = getTrophyCount(score)
   if (trophyCount > 0) {
-    const trophies = '🏆'.repeat(Math.min(trophyCount, 5))
+    const trophies = '🏆'.repeat(trophyCount)
     ctx.font = '1.2rem system-ui'
     ctx.fillText(trophies, canvasWidth - 20, 82)
   }
@@ -30,7 +32,7 @@ export function drawFloatingLabels(ctx, labels, now) {
     const t = Math.min(elapsed / l.duration, 1)
     const alpha = 1 - t
     if (alpha <= 0) continue
-    const y = l.y - t * 60  // float upward 60px over lifetime
+    const y = l.y - t * 60
     ctx.globalAlpha = alpha
     ctx.font = `bold ${l.fontSize} system-ui`
     ctx.fillStyle = l.colour
