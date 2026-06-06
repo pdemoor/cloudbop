@@ -54,6 +54,10 @@ export default function Game() {
   const [showInitialsEntry, setShowInitialsEntry]   = useState(false)
   const [playerInitials, setPlayerInitials]         = useState('')
 
+  // Flash add-cloud button when no alive clouds remain
+  const [flashAddBtn, setFlashAddBtn]               = useState(false)
+  const flashAddBtnRef                              = useRef(false)
+
   // ── Game state ref ────────────────────────────────────────────────────────
   const stateRef = useRef({
     clouds: [],
@@ -474,6 +478,13 @@ export default function Game() {
       }
       s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult, TOP_MARGIN, BOTTOM_MARGIN)
       s.animals = updateAnimals(s.animals, w, h, BOTTOM_MARGIN)
+
+      // Flash add-cloud button when no alive clouds remain
+      const noAlive = s.clouds.every(c => c.state !== 'alive')
+      if (noAlive !== flashAddBtnRef.current) {
+        flashAddBtnRef.current = noAlive
+        setFlashAddBtn(noAlive)
+      }
     }
 
     s.floatingLabels = s.floatingLabels.filter(l => now - l.startTime < l.duration)
@@ -621,7 +632,12 @@ export default function Game() {
       )}
 
       {/* Add-cloud FAB */}
-      <button id="add-cloud-btn" onClick={addCloud} aria-label="Add cloud">
+      <button
+        id="add-cloud-btn"
+        className={flashAddBtn ? 'flash' : ''}
+        onClick={addCloud}
+        aria-label="Add cloud"
+      >
         ☁️
       </button>
 

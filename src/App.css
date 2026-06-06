@@ -65,11 +65,32 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.1s ease;
 }
 
 #add-cloud-btn:active {
   transform: translateX(-50%) scale(0.92);
+}
+
+@keyframes btn-flash {
+  0% {
+    background: #FFB6C1;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    background: #FF4DA6;
+    box-shadow: 0 0 28px 8px rgba(255, 77, 166, 0.7);
+    transform: translateX(-50%) scale(1.12);
+  }
+  100% {
+    background: #FFB6C1;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+#add-cloud-btn.flash {
+  animation: btn-flash 0.8s ease-in-out infinite;
 }
 
 .share-btn {
