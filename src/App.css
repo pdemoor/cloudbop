@@ -12,6 +12,7 @@ html, body, #root {
   inset: 0;
   background: #1AADDF;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 100;
@@ -26,6 +27,18 @@ html, body, #root {
 .splash img {
   max-width: 280px;
   width: 70%;
+}
+
+.splash-tagline {
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 16px;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  line-height: 1.5;
+  font-family: system-ui, sans-serif;
 }
 
 .game-wrapper {
@@ -118,6 +131,51 @@ html, body, #root {
   padding: 4px 8px;
   touch-action: manipulation;
   flex-shrink: 0;
+}
+
+/* ── How to play tooltip ── */
+#howto-tooltip {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  padding: 16px 24px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 2;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 20;
+  cursor: pointer;
+  min-width: 240px;
+  font-family: system-ui, sans-serif;
+}
+
+.howto-dismiss {
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-top: 4px;
+}
+
+/* ── Mute button ── */
+#mute-btn {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  background: rgba(255,255,255,0.25);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── Logo overlay ── */

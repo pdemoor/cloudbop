@@ -13,11 +13,13 @@ import {
   submitDailyScore, getDailyBest,
   hasPlayedToday, markPlayedToday,
 } from './supabase.js'
+import { play, toggleMute } from './sounds.js'
 
 const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
 const COMBO_WINDOW          = 1500   // ms between taps to keep combo
 const TIMER_DURATION        = 60000  // 1 minute in ms
+const NUDGE_COOLDOWN        = 24 * 60 * 60 * 1000  // 24 hours
 
 function makeLabel(x, y, text, colour, fontSize, duration) {
   return { x, y, text, colour, fontSize, duration, startTime: performance.now() }
@@ -36,6 +38,7 @@ export default function Game() {
   const [resultShareCopied, setResultShareCopied]   = useState(false)
   const [dailyBest, setDailyBest]                   = useState(null)
   const [compPlayedToday, setCompPlayedToday]       = useState(false)
+  const [muted, setMuted]                           = useState(false)
 
   // ── Game state ref (game-loop mutable, no re-renders) ─────────────────────
   const stateRef = useRef({
@@ -79,6 +82,7 @@ export default function Game() {
     startTime: null,
     timeRemaining: 60,
     lastFlashSecond: Infinity,
+    lastTickSecond: Infinity,
     flashAlpha: 0,
   })
 
@@ -98,14 +102,16 @@ export default function Game() {
     // Fetch 24hr best on load
     getDailyBest().then(best => setDailyBest(best))
 
-    // iOS nudge — 30 seconds, once
+    // iOS nudge — 15 seconds, with 24hr cooldown
     const isStandalone =
       window.navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches
-    const nudgeDismissed = localStorage.getItem('cloudbop_nudge_dismissed') === '1'
+    const lastDismissed = localStorage.getItem('cloudbop_nudge_dismissed')
+    const nudgeSuppressed = lastDismissed &&
+      Date.now() - parseInt(lastDismissed) < NUDGE_COOLDOWN
     let nudgeTimer
-    if (!isStandalone && !nudgeDismissed) {
-      nudgeTimer = setTimeout(() => setShowNudge(true), 30000)
+    if (!isStandalone && !nudgeSuppressed) {
+      nudgeTimer = setTimeout(() => setShowNudge(true), 15000)
     }
 
     return () => {
@@ -113,6 +119,13 @@ export default function Game() {
       clearTimeout(nudgeTimer)
     }
   }, [])
+
+  // Auto-dismiss nudge after 5s when it appears
+  useEffect(() => {
+    if (!showNudge) return
+    const t = setTimeout(() => dismissNudge(), 5000)
+    return () => clearTimeout(t)
+  }, [showNudge])
 
   function resizeCanvas() {
     const canvas = canvasRef.current
@@ -138,6 +151,7 @@ export default function Game() {
     if (threshold > 0 && threshold > s.lastTrophyThreshold) {
       s.lastTrophyThreshold = threshold
       s.trophyFlash = { startTime: now, duration: 800 }
+      play('trophy')
 
       setShowShare(true)
       if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
@@ -177,7 +191,10 @@ export default function Game() {
     t.startTime       = performance.now()
     t.timeRemaining   = 60
     t.lastFlashSecond = Infinity
+    t.lastTickSecond  = Infinity
     t.flashAlpha      = 0
+
+    play('timerStart')
 
     setShowTimerBtn(false)
     setShowResults(false)
@@ -207,16 +224,21 @@ export default function Game() {
       getDailyBest().then(best => setDailyBest(best))
     }, 800)
 
+    // Win/lose fanfare
+    play(finalScore > 50 ? 'timerWinEnd' : 'timerLoseEnd')
+
     setShowResults(true)
     setShowTimerBtn(false)
   }, [])
 
   const playAgain = useCallback(() => {
     const t = timerRef.current
-    t.active        = false
-    t.ended         = false
-    t.timeRemaining = 60
-    t.flashAlpha    = 0
+    t.active          = false
+    t.ended           = false
+    t.timeRemaining   = 60
+    t.flashAlpha      = 0
+    t.lastTickSecond  = Infinity
+    t.lastFlashSecond = Infinity
 
     const s = stateRef.current
     s.score               = 0
@@ -280,9 +302,11 @@ export default function Game() {
         s.score += a.points
         hit = true
         if (a.rare) {
+          play('animalRare')
           s.floatingLabels.push(makeLabel(tx, ty, '+3 ✨', '#FFD700', '1.6rem', 800))
           s.rareGlow = { startTime: now, duration: 300 }
         } else {
+          play('animalNorm')
           s.floatingLabels.push(makeLabel(tx, ty, '+1', 'white', '1.2rem', 600))
         }
         break
@@ -295,8 +319,10 @@ export default function Game() {
         if (hitTest(c, tx, ty)) {
           if (velocity < 12) {
             poofCloud(c)
+            play('poof')
           } else {
             explodeCloud(c)
+            play('explode')
             s.shakeFrames = 3
           }
           s.score += c.points
@@ -317,6 +343,9 @@ export default function Game() {
             s.floatingLabels.push(
               makeLabel(tx, ty - 30, `COMBO x${s.comboCount}!`, '#FFE600', '1.6rem', 800)
             )
+            // Combo sound: combo5 at 5+, combo3 at exactly 3
+            if (s.comboCount >= 5) play('combo5')
+            else if (s.comboCount === 3) play('combo3')
           }
 
           hit = true
@@ -378,7 +407,7 @@ export default function Game() {
   // ── Dismiss nudge ─────────────────────────────────────────────────────────
   const dismissNudge = useCallback(() => {
     setShowNudge(false)
-    localStorage.setItem('cloudbop_nudge_dismissed', '1')
+    localStorage.setItem('cloudbop_nudge_dismissed', Date.now().toString())
   }, [])
 
   // ── Game loop ─────────────────────────────────────────────────────────────
@@ -400,6 +429,12 @@ export default function Game() {
       if (secsLeft <= 5 && secsLeft < t.lastFlashSecond) {
         t.lastFlashSecond = secsLeft
         t.flashAlpha = 0.15
+      }
+
+      // Tick sound for last 10 seconds
+      if (secsLeft <= 10 && secsLeft < t.lastTickSecond) {
+        t.lastTickSecond = secsLeft
+        play('timerTick')
       }
 
       t.timeRemaining = secsLeft
@@ -442,6 +477,20 @@ export default function Game() {
     drawClouds(ctx, s.clouds)
     drawAnimals(ctx, s.animals)
     drawScore(ctx, s.score, s.highScore, w)
+
+    // Combo multiplier display (Step 8)
+    if (s.comboCount >= 3) {
+      ctx.save()
+      ctx.font = 'bold 1rem system-ui'
+      ctx.fillStyle = '#FFE600'
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 4
+      ctx.textAlign = 'right'
+      ctx.textBaseline = 'alphabetic'
+      ctx.fillText(`COMBO x${s.comboCount}`, w - 20, 90)
+      ctx.restore()
+    }
+
     drawFloatingLabels(ctx, s.floatingLabels, now)
 
     // Trophy flash overlay
@@ -518,6 +567,15 @@ export default function Game() {
         onPointerCancel={onPointerUp}
       />
 
+      {/* Mute button — top-right below score */}
+      <button
+        id="mute-btn"
+        onClick={() => { const nowMuted = toggleMute(); setMuted(nowMuted) }}
+        aria-label={muted ? 'Unmute' : 'Mute'}
+      >
+        {muted ? '🔇' : '🔊'}
+      </button>
+
       {/* Daily Comp button */}
       {showTimerBtn && (
         <button className="timer-btn" onClick={startTimer}>
@@ -557,10 +615,9 @@ export default function Game() {
 
       {/* iOS nudge */}
       {showNudge && (
-        <div className="nudge-bar">
+        <div className="nudge-bar" onClick={dismissNudge}>
           <span className="nudge-text">
-            ☁️ <strong>Add Cloud Bop to your home screen</strong><br />
-            <span className="nudge-sub">Tap Share then "Add to Home Screen"</span>
+            ☁️ <strong>Add to home screen for the best experience ✨</strong>
           </span>
           <button className="nudge-dismiss" onClick={dismissNudge}>✕</button>
         </div>
