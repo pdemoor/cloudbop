@@ -1,7 +1,7 @@
 const FLYING_EMOJIS = ['🦋','🦜','🦅','🦆','🐦','🦉','🦚','🦩','🦇']
 const RARE_EMOJIS   = ['🐉','🦄','🧚']
 const FEATHER_EMOJI = '🪶'
-const SIZE = 44
+const SIZE = 48
 let nextAnimalId = 0
 
 function rand(min, max) { return min + Math.random() * (max - min) }
@@ -23,7 +23,7 @@ export function spawnAnimal(canvasWidth, canvasHeight, topMargin = 0, bottomMarg
       swayPhase: Math.random() * Math.PI * 2,
       swaySpeed: 1.5 + Math.random() * 1.0,
       swayAmp: 1.2,
-      size: 32 + Math.random() * 16,
+      size: 40 + Math.random() * 10,
       rotation: Math.random() * Math.PI * 2,
       rotationSpeed: (Math.random() - 0.5) * 0.04,
       alive: true,
@@ -100,6 +100,14 @@ export function updateAnimals(animals, canvasWidth, canvasHeight = 800, bottomMa
 
 function drawAnimal(ctx, animal) {
   ctx.save()
+
+  // Explicitly reset all state that could leak from weather/cloud drawing
+  ctx.globalAlpha = 1.0
+  ctx.shadowBlur = 0
+  ctx.shadowColor = 'transparent'
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 0
+
   ctx.translate(animal.x, animal.y)
 
   if (animal.type === 'feather') {
@@ -107,7 +115,16 @@ function drawAnimal(ctx, animal) {
     ctx.font = `${animal.size}px serif`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
+    // Drop shadow for visibility against sky
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
+    ctx.shadowBlur = 6
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 2
     ctx.fillText(FEATHER_EMOJI, 0, 0)
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
   } else {
     const flapScale = 0.78 + 0.22 * Math.abs(Math.sin(animal.flapPhase))
     if (animal.vx < 0) ctx.scale(-1, 1)
@@ -115,7 +132,16 @@ function drawAnimal(ctx, animal) {
     ctx.font = `${animal.size}px serif`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
+    // Drop shadow for visibility against sky
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
+    ctx.shadowBlur = 6
+    ctx.shadowOffsetX = 2
+    ctx.shadowOffsetY = 2
     ctx.fillText(animal.emoji, 0, 0)
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
   }
 
   ctx.restore()

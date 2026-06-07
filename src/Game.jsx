@@ -210,8 +210,11 @@ export default function Game() {
 
   function drawWeatherOverlay(ctx, w, h, rainTier) {
     if (rainTier === 'none') return
+    ctx.save()
+    ctx.globalAlpha = 1
     ctx.fillStyle = `rgba(30, 50, 90, ${rainTier === 'heavy' ? 0.22 : 0.10})`
     ctx.fillRect(0, 0, w, h)
+    ctx.restore()
   }
 
   function drawRain(ctx, raindrops) {
