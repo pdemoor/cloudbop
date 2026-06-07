@@ -683,9 +683,10 @@ export default function Game() {
       ctx.fillStyle = '#FFE600'
       ctx.shadowColor = 'rgba(0,0,0,0.5)'
       ctx.shadowBlur = 4
-      ctx.textAlign = 'right'
+      ctx.textAlign = 'center'
       ctx.textBaseline = 'alphabetic'
-      ctx.fillText(`COMBO x${s.comboCount}`, w - 20, 90)
+      // Centre over the Daily Comp button area (left: 12px, ~130px wide → centre ≈ 77px)
+      ctx.fillText(`COMBO x${s.comboCount}`, 77, 82)
       ctx.restore()
     }
 
