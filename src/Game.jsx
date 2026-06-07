@@ -1010,12 +1010,21 @@ export default function Game() {
             </div>
 
             <div className="info-section">
-              <h3>Combos &amp; weather</h3>
+              <h3>Combos &amp; Weather</h3>
               <p>
-                Tap clouds quickly to build a combo.<br/>
+                Tap clouds quickly — within 1.5 seconds of each other
+                — to build a combo streak.<br/><br/>
+                <strong>Combo scoring:</strong><br/>
+                Each tap in a combo awards <strong>bonus points
+                equal to your combo count</strong>. So your 3rd
+                quick tap scores +3, your 10th scores +10, and so
+                on. This is how scores grow rapidly!<br/><br/>
+                <strong>Weather effects:</strong><br/>
                 <strong>x10</strong> — light rain appears 🌧️<br/>
                 <strong>x50</strong> — lightning strikes 🌩️<br/>
-                <strong>x100</strong> — full storm ⛈️
+                <strong>x100</strong> — full storm ⛈️<br/><br/>
+                Combos reset if you wait more than 1.5 seconds
+                between taps.
               </p>
             </div>
 
