@@ -11,7 +11,7 @@ import {
 import { drawScore, drawFloatingLabels } from './scorer.js'
 import {
   submitDailyScore, getDailyBest, getTopDaily,
-  hasPlayedToday, markPlayedToday,
+  hasPlayedToday, markPlayedToday, initialsAlreadyHasHigherScore,
 } from './supabase.js'
 import { play, toggleMute, playThunder } from './sounds.js'
 import { getSecondsUntil5am, formatCountdown, getTrophyCount } from './utils.js'
@@ -51,6 +51,7 @@ export default function Game() {
   // Initials entry
   const [showInitialsEntry, setShowInitialsEntry]   = useState(false)
   const [playerInitials, setPlayerInitials]         = useState('')
+  const [initialsWarning, setInitialsWarning]       = useState('')
 
   // Flash add-cloud button when no alive clouds remain
   const [flashAddBtn, setFlashAddBtn]               = useState(false)
@@ -1134,6 +1135,7 @@ export default function Game() {
               maxLength={3}
               value={playerInitials}
               onChange={e => {
+                setInitialsWarning('')
                 const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
                 setPlayerInitials(val)
               }}
@@ -1143,14 +1145,27 @@ export default function Game() {
               autoCorrect="off"
               spellCheck={false}
             />
+            {initialsWarning && (
+              <p className="initials-warning">{initialsWarning}</p>
+            )}
             <button
               className="initials-submit"
               disabled={playerInitials.length !== 3}
               onClick={async () => {
+                const alreadyBetter = await initialsAlreadyHasHigherScore(
+                  playerInitials, resultScore
+                )
+                if (alreadyBetter) {
+                  setInitialsWarning(
+                    `${playerInitials.toUpperCase()} already has a higher score today. Choose different initials or skip.`
+                  )
+                  return
+                }
                 await submitDailyScore(resultScore, playerInitials)
                 markPlayedToday()
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
                 updateGlow()
+                setInitialsWarning('')
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
               }}
@@ -1164,6 +1179,7 @@ export default function Game() {
                 markPlayedToday()
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
                 updateGlow()
+                setInitialsWarning('')
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
               }}

@@ -39,9 +39,43 @@ export async function getTopDaily() {
     .select('score, initials')
     .gte('created_at', since)
     .order('score', { ascending: false })
-    .limit(100);
+    .limit(500); // fetch more so dedup has enough data
   if (error) { console.error('Leaderboard error:', error); return []; }
-  return data ?? [];
+
+  // Deduplicate — keep highest score per initials.
+  // Since results are sorted desc, first occurrence is always the best.
+  // Anonymous entries (no initials) are each kept as-is.
+  const seen = new Map();
+  const deduped = [];
+  for (const entry of (data ?? [])) {
+    if (!entry.initials) {
+      // Anonymous — always include
+      deduped.push(entry);
+    } else {
+      const key = entry.initials.toUpperCase().trim();
+      if (!seen.has(key)) {
+        seen.set(key, true);
+        deduped.push(entry);
+      }
+      // Duplicate initials with lower score — skip
+    }
+  }
+  return deduped.slice(0, 100);
+}
+
+export async function initialsAlreadyHasHigherScore(initials, newScore) {
+  if (!initials || initials.trim().length !== 3) return false;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('daily_scores')
+    .select('score')
+    .eq('initials', initials.toUpperCase().trim())
+    .gte('created_at', since)
+    .order('score', { ascending: false })
+    .limit(1);
+  if (error) return false;
+  if (!data || data.length === 0) return false;
+  return data[0].score >= newScore;
 }
 
 export async function getDailyBest() {

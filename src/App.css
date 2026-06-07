@@ -593,6 +593,14 @@ html, body, #root {
   cursor: not-allowed;
 }
 
+.initials-warning {
+  color: #FF3B30;
+  font-size: 0.8rem;
+  margin: -10px 0 10px;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .initials-skip {
   background: none;
   color: #aaa;
