@@ -906,14 +906,14 @@ export default function Game() {
         </svg>
       </button>
 
-      {/* Daily Comp pulse — always in DOM, visibility controlled by data-can-play */}
-      <div id="comp-pulse" data-can-play="false" />
-
-      {/* Daily Comp button */}
+      {/* Daily Comp pulse + button — both hidden during timer mode */}
       {showTimerBtn && (
-        <button id="daily-comp-btn" className="timer-btn" data-can-play="false" onClick={startTimer}>
-          <span className="trophy-icon">🏆</span>{' '}Daily Comp
-        </button>
+        <>
+          <div id="comp-pulse" data-can-play="false" />
+          <button id="daily-comp-btn" className="timer-btn" data-can-play="false" onClick={startTimer}>
+            <span className="trophy-icon">🏆</span>{' '}Daily Comp
+          </button>
+        </>
       )}
 
       {showTimerBtn && (
