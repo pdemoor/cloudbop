@@ -59,13 +59,6 @@ export default function Game() {
   // Info modal
   const [showInfoModal, setShowInfoModal]           = useState(false)
 
-  // Background pulse behind Daily Comp button
-  const [showCompPulse, setShowCompPulse]           = useState(false)
-
-  function stopCompPulse() {
-    setShowCompPulse(false)
-  }
-
   // ── Game state ref ────────────────────────────────────────────────────────
   const stateRef = useRef({
     clouds: [],
@@ -133,25 +126,25 @@ export default function Game() {
     }
   }, [])
 
-  // Pulse check — runs on mount and every 60s
-  useEffect(() => {
-    function checkPulse() {
-      if (hasPlayedToday()) {
-        setShowCompPulse(false)
-        return
-      }
-      const now = new Date()
-      const todayAt5am = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        5, 0, 0, 0
-      )
-      setShowCompPulse(now >= todayAt5am)
-    }
+  // ── Glow helper — reads localStorage directly, no React state ───────────
+  function canPlayDailyComp() {
+    if (hasPlayedToday()) return false
+    const now = new Date()
+    const todayAt5am = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 5, 0, 0, 0)
+    return now >= todayAt5am
+  }
 
-    checkPulse()
-    const interval = setInterval(checkPulse, 60000)
+  function updateGlow() {
+    const can = canPlayDailyComp()
+    const attr = can ? 'true' : 'false'
+    document.getElementById('daily-comp-btn')?.setAttribute('data-can-play', attr)
+    document.getElementById('comp-pulse')?.setAttribute('data-can-play', attr)
+  }
+
+  // Run on mount and every 30s — keeps glow in sync without React state
+  useEffect(() => {
+    updateGlow()
+    const interval = setInterval(updateGlow, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -280,7 +273,7 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
-    stopCompPulse()
+    updateGlow()
 
     if (hasPlayedToday()) {
       const savedScore = parseInt(
@@ -345,7 +338,7 @@ export default function Game() {
     }
 
     play(finalScore > 50 ? 'timerWinEnd' : 'timerLoseEnd')
-    stopCompPulse()
+    updateGlow()
     setShowResults(true)
     setShowTimerBtn(false)
 
@@ -827,14 +820,12 @@ export default function Game() {
         </svg>
       </button>
 
-      {/* Daily Comp pulse — behind the button (z-index 9) */}
-      {showTimerBtn && showCompPulse === true && (
-        <div id="comp-pulse" />
-      )}
+      {/* Daily Comp pulse — always in DOM, visibility controlled by data-can-play */}
+      <div id="comp-pulse" data-can-play="false" />
 
       {/* Daily Comp button */}
       {showTimerBtn && (
-        <button id="daily-comp-btn" className="timer-btn" onClick={startTimer}>
+        <button id="daily-comp-btn" className="timer-btn" data-can-play="false" onClick={startTimer}>
           <span className="trophy-icon">🏆</span>{' '}Daily Comp
         </button>
       )}
@@ -1086,6 +1077,7 @@ export default function Game() {
                 await submitDailyScore(resultScore, playerInitials)
                 markPlayedToday()
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
+                updateGlow()
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
               }}
@@ -1098,6 +1090,7 @@ export default function Game() {
                 submitDailyScore(resultScore)
                 markPlayedToday()
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
+                updateGlow()
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
               }}

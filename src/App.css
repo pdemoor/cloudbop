@@ -612,7 +612,7 @@ html, body, #root {
   text-align: left;
 }
 
-/* ── Daily Comp button — yellow glow pulse ── */
+/* ── Daily Comp button — yellow glow (only when data-can-play="true") ── */
 @keyframes btn-glow {
   0%   { box-shadow: 0 0 8px 2px rgba(255, 220, 0, 0.6),
                      0 2px 8px rgba(0,0,0,0.15); }
@@ -622,7 +622,7 @@ html, body, #root {
                      0 2px 8px rgba(0,0,0,0.15); }
 }
 
-#daily-comp-btn {
+#daily-comp-btn[data-can-play="true"] {
   animation: btn-glow 2.4s ease-in-out infinite;
 }
 
@@ -641,9 +641,16 @@ html, body, #root {
   height: 40px;
   border-radius: 999px;
   background: rgba(255, 220, 0, 0.45);
-  animation: comp-pulse 2.0s ease-out infinite;
   pointer-events: none;
   z-index: 9;
+  /* hidden by default — animation added only when can-play */
+  opacity: 0;
+  animation: none;
+}
+
+#comp-pulse[data-can-play="true"] {
+  opacity: 1;
+  animation: comp-pulse 2.0s ease-out infinite;
 }
 
 /* ── Trophy icon sparkle ── */
