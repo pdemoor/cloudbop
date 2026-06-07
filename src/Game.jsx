@@ -20,7 +20,6 @@ const ANIMAL_INTERVAL_START = 10000
 const ANIMAL_INTERVAL_MIN   = 5000
 const COMBO_WINDOW          = 1500
 const TIMER_DURATION        = 60000
-const NUDGE_COOLDOWN        = 24 * 60 * 60 * 1000
 
 // Safe play area — keep clouds and animals out of UI chrome
 const TOP_MARGIN    = 90   // px — clouds and animals stay below this
@@ -36,7 +35,6 @@ export default function Game() {
   // ── React state ───────────────────────────────────────────────────────────
   const [showShare, setShowShare]                   = useState(false)
   const [shareCopied, setShareCopied]               = useState(false)
-  const [showNudge, setShowNudge]                   = useState(false)
   const [showTimerBtn, setShowTimerBtn]             = useState(true)
   const [showResults, setShowResults]               = useState(false)
   const [resultScore, setResultScore]               = useState(0)
@@ -134,28 +132,12 @@ export default function Game() {
     const canPlay   = !hasPlayedToday()
     setShowCompPulse(isPast5am && canPlay)
 
-    const isStandalone =
-      window.navigator.standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches
-    const lastDismissed = localStorage.getItem('cloudbop_nudge_dismissed')
-    const nudgeSuppressed = lastDismissed &&
-      Date.now() - parseInt(lastDismissed) < NUDGE_COOLDOWN
-    let nudgeTimer
-    if (!isStandalone && !nudgeSuppressed) {
-      nudgeTimer = setTimeout(() => setShowNudge(true), 15000)
-    }
+    localStorage.removeItem('cloudbop_nudge_dismissed')
 
     return () => {
       window.removeEventListener('resize', resizeCanvas)
-      clearTimeout(nudgeTimer)
     }
   }, [])
-
-  useEffect(() => {
-    if (!showNudge) return
-    const t = setTimeout(() => dismissNudge(), 5000)
-    return () => clearTimeout(t)
-  }, [showNudge])
 
   useEffect(() => {
     if (!showLockout) return
@@ -551,12 +533,6 @@ export default function Game() {
     }
   }, [])
 
-  // ── Dismiss nudge ─────────────────────────────────────────────────────────
-  const dismissNudge = useCallback(() => {
-    setShowNudge(false)
-    localStorage.setItem('cloudbop_nudge_dismissed', Date.now().toString())
-  }, [])
-
   // ── Game loop ─────────────────────────────────────────────────────────────
   useGameLoop((dt, now) => {
     const canvas = canvasRef.current
@@ -866,16 +842,6 @@ export default function Game() {
         <button className="share-btn" onClick={handleShare}>
           {shareCopied ? 'Copied! ✓' : 'Share my score 🏆'}
         </button>
-      )}
-
-      {/* iOS nudge */}
-      {showNudge && (
-        <div className="nudge-bar" onClick={dismissNudge}>
-          <span className="nudge-text">
-            ☁️ <strong>Add to home screen for the best experience ✨</strong>
-          </span>
-          <button className="nudge-dismiss" onClick={dismissNudge}>✕</button>
-        </div>
       )}
 
       {/* Lockout popup */}
