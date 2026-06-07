@@ -62,6 +62,10 @@ export default function Game() {
   // Background pulse behind Daily Comp button
   const [showCompPulse, setShowCompPulse]           = useState(false)
 
+  function stopCompPulse() {
+    setShowCompPulse(false)
+  }
+
   // ── Game state ref ────────────────────────────────────────────────────────
   const stateRef = useRef({
     clouds: [],
@@ -122,23 +126,33 @@ export default function Game() {
     window.addEventListener('resize', resizeCanvas)
     getDailyBest().then(best => setDailyBest(best))
 
-    // Show background pulse only if player has NOT played today AND it's past 5am
-    if (hasPlayedToday()) {
-      setShowCompPulse(false)
-    } else {
-      const now5 = new Date()
-      const todayAt5am = new Date(
-        now5.getFullYear(), now5.getMonth(), now5.getDate(),
-        5, 0, 0, 0
-      )
-      setShowCompPulse(now5 >= todayAt5am)
-    }
-
     localStorage.removeItem('cloudbop_nudge_dismissed')
 
     return () => {
       window.removeEventListener('resize', resizeCanvas)
     }
+  }, [])
+
+  // Pulse check — runs on mount and every 60s
+  useEffect(() => {
+    function checkPulse() {
+      if (hasPlayedToday()) {
+        setShowCompPulse(false)
+        return
+      }
+      const now = new Date()
+      const todayAt5am = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        5, 0, 0, 0
+      )
+      setShowCompPulse(now >= todayAt5am)
+    }
+
+    checkPulse()
+    const interval = setInterval(checkPulse, 60000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -266,7 +280,7 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
-    setShowCompPulse(false)
+    stopCompPulse()
 
     if (hasPlayedToday()) {
       const savedScore = parseInt(
@@ -331,6 +345,7 @@ export default function Game() {
     }
 
     play(finalScore > 50 ? 'timerWinEnd' : 'timerLoseEnd')
+    stopCompPulse()
     setShowResults(true)
     setShowTimerBtn(false)
 
@@ -344,12 +359,10 @@ export default function Game() {
         finalScore > lb[lb.length - 1].score
 
       if (qualifies) {
-        setShowCompPulse(false)
         setShowInitialsEntry(true)
       } else {
         submitDailyScore(finalScore)
         markPlayedToday()
-        setShowCompPulse(false)
         localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
       }
 
@@ -361,7 +374,6 @@ export default function Game() {
       // Network failure — submit without initials
       submitDailyScore(finalScore)
       markPlayedToday()
-      setShowCompPulse(false)
       localStorage.setItem('cloudbop_last_comp_score', String(finalScore))
     }
   }
@@ -816,7 +828,7 @@ export default function Game() {
       </button>
 
       {/* Daily Comp pulse — behind the button (z-index 9) */}
-      {showTimerBtn && showCompPulse && (
+      {showTimerBtn && showCompPulse === true && (
         <div id="comp-pulse" />
       )}
 
@@ -1073,7 +1085,6 @@ export default function Game() {
               onClick={async () => {
                 await submitDailyScore(resultScore, playerInitials)
                 markPlayedToday()
-                setShowCompPulse(false)
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
@@ -1086,7 +1097,6 @@ export default function Game() {
               onClick={() => {
                 submitDailyScore(resultScore)
                 markPlayedToday()
-                setShowCompPulse(false)
                 localStorage.setItem('cloudbop_last_comp_score', String(resultScore))
                 setShowInitialsEntry(false)
                 getTopDaily().then(scores => setLeaderboard(scores))
