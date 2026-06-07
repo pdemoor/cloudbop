@@ -601,6 +601,9 @@ export default function Game() {
     const s = stateRef.current
     const t = timerRef.current
 
+    // Delta: 1.0 at 60fps, 0.5 at 120fps — applied to animals only
+    const delta = Math.min(dt / 16.67, 3)
+
     if (t.active) {
       const elapsed = now - t.startTime
       const secsLeft = Math.max(0, Math.ceil((TIMER_DURATION - elapsed) / 1000))
@@ -639,7 +642,7 @@ export default function Game() {
         s.lastPigSpawn = now
       }
       s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult, TOP_MARGIN, BOTTOM_MARGIN)
-      s.animals = updateAnimals(s.animals, w, h, BOTTOM_MARGIN)
+      s.animals = updateAnimals(s.animals, w, h, BOTTOM_MARGIN, delta)
 
       // Flash add-cloud button when no alive clouds remain
       const noAlive = s.clouds.every(c => c.state !== 'alive')

@@ -64,22 +64,22 @@ export function spawnAnimal(canvasWidth, canvasHeight, topMargin = 0, bottomMarg
   }
 }
 
-export function updateAnimals(animals, canvasWidth, canvasHeight = 800, bottomMargin = 0) {
+export function updateAnimals(animals, canvasWidth, canvasHeight = 800, bottomMargin = 0, delta = 1) {
   for (const a of animals) {
     if (!a.alive) {
       // just update particles
     } else if (a.type === 'feather') {
-      a.swayPhase += a.swaySpeed * (1 / 60)
-      a.x        += a.vx + Math.sin(a.swayPhase) * a.swayAmp
-      a.y        += a.vy
-      a.rotation += a.rotationSpeed
+      a.swayPhase += a.swaySpeed * (1 / 60) * delta
+      a.x        += (a.vx + Math.sin(a.swayPhase) * a.swayAmp) * delta
+      a.y        += a.vy * delta
+      a.rotation += a.rotationSpeed * delta
       if (a.y > canvasHeight - bottomMargin + 40) {
         a.done = true
         a.alive = false
       }
     } else {
-      a.flapPhase += a.flapSpeed * (1 / 60)
-      a.x         += a.vx
+      a.flapPhase += a.flapSpeed * (1 / 60) * delta
+      a.x         += a.vx * delta
     }
 
     for (const p of a.particles) {
@@ -116,8 +116,11 @@ function drawAnimal(ctx, animal) {
     // Soft white background circle so feather pops against sky
     ctx.beginPath()
     ctx.arc(0, 0, (animal.size || 36) * 0.7, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.50)'
     ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.lineWidth = 2.5
+    ctx.stroke()
 
     ctx.font = `${animal.size || 36}px serif`
     ctx.textBaseline = 'middle'
@@ -132,8 +135,11 @@ function drawAnimal(ctx, animal) {
     // Pink background circle for the pig
     ctx.beginPath()
     ctx.arc(0, 0, (animal.size || 52) * 0.72, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255, 182, 193, 0.5)'
+    ctx.fillStyle = 'rgba(255, 182, 193, 0.70)'
     ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.lineWidth = 2.5
+    ctx.stroke()
 
     ctx.font = `${animal.size || 52}px serif`
     ctx.textBaseline = 'middle'
@@ -149,8 +155,11 @@ function drawAnimal(ctx, animal) {
     // Soft white background circle so emoji pops against sky
     ctx.beginPath()
     ctx.arc(0, 0, (animal.size || 44) * 0.65, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.30)'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'
     ctx.fill()
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)'
+    ctx.lineWidth = 2.5
+    ctx.stroke()
 
     ctx.font = `${animal.size || 44}px serif`
     ctx.textBaseline = 'middle'
