@@ -1,6 +1,6 @@
 import { getTrophyCount } from './utils.js'
 
-export function drawScore(ctx, score, highScore, canvasWidth) {
+export function drawScore(ctx, score, highScore, canvasWidth, hidePB = false) {
   ctx.save()
   ctx.shadowColor = 'rgba(0,0,0,0.3)'
   ctx.shadowBlur = 4
@@ -11,13 +11,15 @@ export function drawScore(ctx, score, highScore, canvasWidth) {
   ctx.textBaseline = 'alphabetic'
   ctx.fillText(`Score: ${score}`, canvasWidth - 20, 36)
 
-  // Centre PB under the Score text
-  const scoreWidth = ctx.measureText(`Score: ${score}`).width
-  const scoreMidX  = canvasWidth - 20 - scoreWidth / 2
-  ctx.font = '1rem system-ui'
-  ctx.textAlign = 'center'
-  ctx.fillText(`PB: ${highScore}`, scoreMidX, 58)
-  ctx.textAlign = 'right'
+  if (!hidePB) {
+    // Centre PB under the Score text
+    const scoreWidth = ctx.measureText(`Score: ${score}`).width
+    const scoreMidX  = canvasWidth - 20 - scoreWidth / 2
+    ctx.font = '1rem system-ui'
+    ctx.textAlign = 'center'
+    ctx.fillText(`PB: ${highScore}`, scoreMidX, 58)
+    ctx.textAlign = 'right'
+  }
 
   const trophyCount = getTrophyCount(score)
   if (trophyCount > 0) {

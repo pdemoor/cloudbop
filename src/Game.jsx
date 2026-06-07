@@ -688,7 +688,7 @@ export default function Game() {
     // 7. Animals
     drawAnimals(ctx, s.animals)
 
-    drawScore(ctx, s.score, s.highScore, w)
+    drawScore(ctx, s.score, s.highScore, w, t.active)
 
     if (s.comboCount >= 3) {
       ctx.save()
