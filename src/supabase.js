@@ -36,7 +36,6 @@ export async function getTopDaily() {
     .gte('created_at', since)
     .order('score', { ascending: false })
     .limit(100);
-  console.log('[getTopDaily] data:', data, 'error:', error);
   if (error) { console.error('Leaderboard error:', error); return []; }
   return data ?? [];
 }
@@ -55,12 +54,33 @@ export async function getDailyBest() {
 
 // ── Daily comp gate ──────────────────────────────────────────────────────────
 
+// Returns the timestamp (ms) of the most recent 5am that has already passed
+function getLast5am() {
+  const now = new Date();
+  const todayAt5am = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    5, 0, 0, 0
+  );
+  if (now >= todayAt5am) {
+    // We are past today's 5am — use today's 5am
+    return todayAt5am.getTime();
+  } else {
+    // We are before today's 5am — use yesterday's 5am
+    const yesterdayAt5am = new Date(todayAt5am);
+    yesterdayAt5am.setDate(yesterdayAt5am.getDate() - 1);
+    return yesterdayAt5am.getTime();
+  }
+}
+
 export function hasPlayedToday() {
   const last = localStorage.getItem('cloudbop_last_comp');
   if (!last) return false;
-  const lastDate = new Date(parseInt(last));
-  const now = new Date();
-  return lastDate.toDateString() === now.toDateString();
+  const lastPlayed = parseInt(last);
+  // Player has played in the current 5am–5am window if their last play
+  // timestamp is after the most recent 5am boundary
+  return lastPlayed >= getLast5am();
 }
 
 export function markPlayedToday() {
