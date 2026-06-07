@@ -33,7 +33,7 @@ export default function App() {
         <div className={`splash${fadeOut ? ' fade-out' : ''}`}>
           <img src="/icon-512.png" alt="Cloud Bop" />
           <p className="splash-tagline">
-            Tap clouds. Chase combos.<br />60 seconds of pure chaos.
+            Bop clouds. Chase combos.<br />60 seconds of cute chaos.
           </p>
         </div>
       )}
@@ -46,10 +46,10 @@ export default function App() {
       )}
       {!showSplash && showHowTo && (
         <div id="howto-tooltip" onClick={dismissHowTo}>
-          <p>👆 Tap lightly = poof</p>
+          <p>👆 Bop lightly = poof</p>
           <p>👋 Swipe hard = explode</p>
-          <p>🦋 Hit animals for bonus!</p>
-          <p className="howto-dismiss">Tap to dismiss</p>
+          <p>🦋 Bop animals for bonus!</p>
+          <p className="howto-dismiss">Bop to dismiss</p>
         </div>
       )}
       <div className="game-wrapper">

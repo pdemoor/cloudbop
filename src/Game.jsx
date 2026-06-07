@@ -992,11 +992,11 @@ export default function Game() {
             <h2>☁️ How to Play</h2>
 
             <div className="info-section">
-              <h3>Tapping clouds</h3>
+              <h3>Bopping clouds</h3>
               <p>
-                <strong>Tap lightly</strong> — cloud poofs away softly.<br/>
+                <strong>Bop lightly</strong> — cloud poofs away softly.<br/>
                 <strong>Swipe fast</strong> — cloud explodes with a bang!<br/>
-                Each tap scores <strong>1 point</strong> (small clouds = 2 pts).
+                Each bop scores <strong>1 point</strong> (small clouds = 2 pts).
               </p>
             </div>
 
@@ -1004,7 +1004,7 @@ export default function Game() {
               <h3>Flying animals</h3>
               <p>
                 Every 10 seconds a creature flies across.<br/>
-                <strong>Tap it</strong> for a bonus point.<br/>
+                <strong>Bop it</strong> for a bonus point.<br/>
                 🐉 🦄 🧚 are <strong>rare</strong> — worth 3 points!
               </p>
             </div>
@@ -1012,19 +1012,19 @@ export default function Game() {
             <div className="info-section">
               <h3>Combos &amp; Weather</h3>
               <p>
-                Tap clouds quickly — within 1.5 seconds of each other
+                Bop clouds quickly — within 1.5 seconds of each other
                 — to build a combo streak.<br/><br/>
                 <strong>Combo scoring:</strong><br/>
-                Each tap in a combo awards <strong>bonus points
+                Each bop in a combo awards <strong>bonus points
                 equal to your combo count</strong>. So your 3rd
-                quick tap scores +3, your 10th scores +10, and so
+                quick bop scores +3, your 10th scores +10, and so
                 on. This is how scores grow rapidly!<br/><br/>
                 <strong>Weather effects:</strong><br/>
                 <strong>x10</strong> — light rain appears 🌧️<br/>
                 <strong>x50</strong> — lightning strikes 🌩️<br/>
                 <strong>x100</strong> — full storm ⛈️<br/><br/>
                 Combos reset if you wait more than 1.5 seconds
-                between taps.
+                between bops.
               </p>
             </div>
 
