@@ -307,6 +307,7 @@ export default function Game() {
     s.lastRampThreshold = 0
     s.speedMult         = 1
     s.animalInterval    = ANIMAL_INTERVAL_START
+    s.lastAnimalSpawn   = 0  // reset so first animal spawns promptly
     s.floatingLabels    = []
     s.lastTrophyCount   = 0
     s.trophyFlash       = null
@@ -881,6 +882,11 @@ export default function Game() {
       {showLockout && (
         <div id="lockout-overlay">
           <div className="lockout-inner">
+            <button
+              className="popup-close-x"
+              onClick={() => setShowLockout(false)}
+              aria-label="Close"
+            >✕</button>
             <h2>You've played today! 🎉</h2>
             <p className="lockout-label">Your score</p>
             <p className="lockout-score">{lockoutScore}</p>
@@ -932,6 +938,11 @@ export default function Game() {
       {showResults && (
         <div id="timer-results">
           <div className="results-inner">
+            <button
+              className="popup-close-x"
+              onClick={() => setShowResults(false)}
+              aria-label="Close"
+            >✕</button>
             <h2>Time's Up!</h2>
             <p className="results-score">{resultScore}</p>
             <p className="results-label">points</p>
@@ -978,7 +989,7 @@ export default function Game() {
                 {resultShareCopied ? 'Copied! ✓' : '📸 Share Result'}
               </button>
               <button id="results-play-again" onClick={playAgain}>
-                Play Again
+                Free Play
               </button>
             </div>
           </div>
@@ -989,6 +1000,11 @@ export default function Game() {
       {showInfoModal && (
         <div id="info-overlay" onClick={() => setShowInfoModal(false)}>
           <div className="info-inner" onClick={e => e.stopPropagation()}>
+            <button
+              className="popup-close-x"
+              onClick={() => setShowInfoModal(false)}
+              aria-label="Close"
+            >✕</button>
             <h2>☁️ How to Play</h2>
 
             <div className="info-section">

@@ -282,6 +282,7 @@ html, body, #root {
 }
 
 .lockout-inner {
+  position: relative;
   background: white;
   border-radius: 24px;
   padding: 32px 40px;
@@ -359,7 +360,7 @@ html, body, #root {
 }
 
 .lockout-lb-scroll {
-  max-height: 260px;
+  max-height: 180px;
   overflow-y: auto;
   border-radius: 8px;
   -webkit-overflow-scrolling: touch;
@@ -426,6 +427,26 @@ html, body, #root {
   font-family: system-ui, sans-serif;
 }
 
+/* ── Shared popup X close button ── */
+.popup-close-x {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: #bbb;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px;
+  touch-action: manipulation;
+  transition: color 0.15s;
+}
+
+.popup-close-x:hover {
+  color: #888;
+}
+
 /* ── Timer results overlay ── */
 #timer-results {
   position: fixed;
@@ -439,6 +460,7 @@ html, body, #root {
 }
 
 .results-inner {
+  position: relative;
   background: white;
   border-radius: 24px;
   padding: 32px 36px 28px;
@@ -715,6 +737,7 @@ html, body, #root {
 }
 
 .info-inner {
+  position: relative;
   background: white;
   border-radius: 24px;
   padding: 28px 28px 24px;
