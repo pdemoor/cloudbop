@@ -84,6 +84,10 @@ export default function Game() {
     rareGlow: null,
     shareHideTimer: null,
 
+    // Flying pig
+    lastPigSpawn: 0,
+    pigFlashAlpha: 0,
+
     // Weather system
     raindrops: [],
     lightning: {
@@ -185,6 +189,41 @@ export default function Game() {
       if (s.shareHideTimer) clearTimeout(s.shareHideTimer)
       s.shareHideTimer = setTimeout(() => setShowShare(false), 5000)
     }
+  }
+
+  // ── Flying pig ────────────────────────────────────────────────────────────
+  const PIG_INTERVAL = 50000 // ms between pig spawns
+
+  function spawnPig(canvas) {
+    const fromLeft = Math.random() > 0.5
+    const speed = 2.5 + Math.random() * 1.5
+    const minY = TOP_MARGIN + 40
+    const maxY = canvas.height - BOTTOM_MARGIN - 40
+    const y = minY + Math.random() * Math.max(0, maxY - minY)
+    const s = stateRef.current
+
+    s.animals.push({
+      id: -1,  // pigs don't use nextAnimalId
+      type: 'pig',
+      emoji: '🐷',
+      x: fromLeft ? -80 : canvas.width + 80,
+      y,
+      vx: fromLeft ? speed : -speed,
+      vy: 0,
+      size: 56,
+      alive: true,
+      rare: true,
+      points: 100,
+      particles: [],
+      flapPhase: Math.random() * Math.PI * 2,
+      flapSpeed: 4 + Math.random() * 2,
+      done: false,
+    })
+
+    // Announce the pig
+    s.floatingLabels.push(
+      makeLabel(canvas.width / 2, TOP_MARGIN + 50, '🐷 Flying Pig! +100pts', '#FF69B4', '1.2rem', 2000)
+    )
   }
 
   // ── Weather helpers ───────────────────────────────────────────────────────
@@ -302,6 +341,8 @@ export default function Game() {
     s.speedMult         = 1
     s.animalInterval    = ANIMAL_INTERVAL_START
     s.lastAnimalSpawn   = 0  // reset so first animal spawns promptly
+    s.lastPigSpawn      = 0  // reset so pig timer restarts
+    s.pigFlashAlpha     = 0
     s.floatingLabels    = []
     s.lastTrophyCount   = 0
     s.trophyFlash       = null
@@ -394,6 +435,8 @@ export default function Game() {
     s.trophyFlash       = null
     s.shakeFrames       = 0
     s.rareGlow          = null
+    s.lastPigSpawn      = 0
+    s.pigFlashAlpha     = 0
     s.raindrops         = []
     s.lightning         = { active: false, flashAlpha: 0, boltPoints: [], timer: 0, cooldown: 0 }
 
@@ -446,7 +489,11 @@ export default function Game() {
         bopAnimal(a)
         s.score += a.points
         hit = true
-        if (a.rare) {
+        if (a.type === 'pig') {
+          play('animalRare')
+          s.floatingLabels.push(makeLabel(tx, ty, '+100 🐷', '#FF69B4', '1.8rem', 1000))
+          s.pigFlashAlpha = 0.4
+        } else if (a.rare) {
           play('animalRare')
           s.floatingLabels.push(makeLabel(tx, ty, '+3 ✨', '#FFD700', '1.6rem', 800))
           s.rareGlow = { startTime: now, duration: 300 }
@@ -583,6 +630,14 @@ export default function Game() {
         s.animals.push(spawnAnimal(w, h, TOP_MARGIN, BOTTOM_MARGIN))
         s.lastAnimalSpawn = now
       }
+      // Pig spawn — independent 50s timer, runs alongside regular animals
+      if (s.lastPigSpawn > 0 && now - s.lastPigSpawn >= PIG_INTERVAL) {
+        s.lastPigSpawn = now
+        spawnPig(canvas)
+      } else if (s.lastPigSpawn === 0) {
+        // First pig spawns 50s after game starts
+        s.lastPigSpawn = now
+      }
       s.clouds = updateClouds(s.clouds, dt, now / 1000, w, h, s.speedMult, TOP_MARGIN, BOTTOM_MARGIN)
       s.animals = updateAnimals(s.animals, w, h, BOTTOM_MARGIN)
 
@@ -668,6 +723,16 @@ export default function Game() {
 
     // 2. Weather overlay (dark tint)
     drawWeatherOverlay(ctx, w, h, rainTier)
+
+    // 2b. Pink pig flash
+    if (s.pigFlashAlpha > 0) {
+      ctx.save()
+      ctx.globalAlpha = s.pigFlashAlpha
+      ctx.fillStyle = '#FF69B4'
+      ctx.fillRect(0, 0, w, h)
+      ctx.restore()
+      s.pigFlashAlpha = Math.max(0, s.pigFlashAlpha - 0.025)
+    }
 
     // 3. Rain streaks
     drawRain(ctx, s.raindrops)
@@ -999,7 +1064,9 @@ export default function Game() {
               <p>
                 Every 10 seconds a creature flies across.<br/>
                 <strong>Bop it</strong> for a bonus point.<br/>
-                🐉 🦄 🧚 are <strong>rare</strong> — worth 3 points!
+                🐉 🦄 🧚 are <strong>rare</strong> — worth 3 points!<br/><br/>
+                Every 50 seconds a <strong>🐷 Flying Pig</strong> appears
+                — bop it for <strong>100 points!</strong>
               </p>
             </div>
 

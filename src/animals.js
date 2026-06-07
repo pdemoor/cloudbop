@@ -101,7 +101,7 @@ export function updateAnimals(animals, canvasWidth, canvasHeight = 800, bottomMa
 function drawAnimal(ctx, animal) {
   ctx.save()
 
-  // Explicitly reset all state that could leak from weather/cloud drawing
+  // Reset ALL state that could leak from weather/cloud drawing
   ctx.globalAlpha = 1.0
   ctx.shadowBlur = 0
   ctx.shadowColor = 'transparent'
@@ -111,37 +111,51 @@ function drawAnimal(ctx, animal) {
   ctx.translate(animal.x, animal.y)
 
   if (animal.type === 'feather') {
-    ctx.rotate(animal.rotation)
-    ctx.font = `${animal.size}px serif`
+    ctx.rotate(animal.rotation || 0)
+
+    // Soft white background circle so feather pops against sky
+    ctx.beginPath()
+    ctx.arc(0, 0, (animal.size || 36) * 0.7, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)'
+    ctx.fill()
+
+    ctx.font = `${animal.size || 36}px serif`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
-    // Drop shadow for visibility against sky
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
-    ctx.shadowBlur = 6
-    ctx.shadowOffsetX = 2
-    ctx.shadowOffsetY = 2
     ctx.fillText(FEATHER_EMOJI, 0, 0)
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
-  } else {
-    const flapScale = 0.78 + 0.22 * Math.abs(Math.sin(animal.flapPhase))
+
+  } else if (animal.type === 'pig') {
+    const flapScale = 0.80 + 0.20 * Math.abs(Math.sin(animal.flapPhase || 0))
     if (animal.vx < 0) ctx.scale(-1, 1)
     ctx.scale(1, flapScale)
-    ctx.font = `${animal.size}px serif`
+
+    // Pink background circle for the pig
+    ctx.beginPath()
+    ctx.arc(0, 0, (animal.size || 52) * 0.72, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255, 182, 193, 0.5)'
+    ctx.fill()
+
+    ctx.font = `${animal.size || 52}px serif`
     ctx.textBaseline = 'middle'
     ctx.textAlign = 'center'
-    // Drop shadow for visibility against sky
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
-    ctx.shadowBlur = 6
-    ctx.shadowOffsetX = 2
-    ctx.shadowOffsetY = 2
+    ctx.fillText('🐷', 0, 0)
+
+  } else {
+    // Normal and rare flying animals
+    const flapScale = 0.78 + 0.22 * Math.abs(Math.sin(animal.flapPhase || 0))
+    if (animal.vx < 0) ctx.scale(-1, 1)
+    ctx.scale(1, flapScale)
+
+    // Soft white background circle so emoji pops against sky
+    ctx.beginPath()
+    ctx.arc(0, 0, (animal.size || 44) * 0.65, 0, Math.PI * 2)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.30)'
+    ctx.fill()
+
+    ctx.font = `${animal.size || 44}px serif`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
     ctx.fillText(animal.emoji, 0, 0)
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 0
   }
 
   ctx.restore()
