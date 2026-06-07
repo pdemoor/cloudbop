@@ -10,7 +10,7 @@ import {
 } from './animals.js'
 import { drawScore, drawFloatingLabels } from './scorer.js'
 import {
-  submitDailyScore, getDailyBest, getTopDaily,
+  submitDailyScore, getDailyBest, getTopDaily, getAllTimeTop100,
   hasPlayedToday, markPlayedToday, initialsAlreadyHasHigherScore,
 } from './supabase.js'
 import { play, toggleMute, playThunder } from './sounds.js'
@@ -46,6 +46,8 @@ export default function Game() {
   const [showLockout, setShowLockout]               = useState(false)
   const [lockoutScore, setLockoutScore]             = useState(0)
   const [leaderboard, setLeaderboard]               = useState([])
+  const [allTimeLeaderboard, setAllTimeLeaderboard] = useState([])
+  const [lbTab, setLbTab]                           = useState('24hr')
   const [countdown, setCountdown]                   = useState('')
 
   // Initials entry
@@ -323,12 +325,17 @@ export default function Game() {
         localStorage.getItem('cloudbop_last_comp_score') || '0'
       )
       setLockoutScore(savedScore)
-      setLeaderboard([])           // clear stale data while fetching
+      setLeaderboard([])
+      setAllTimeLeaderboard([])
+      setLbTab('24hr')
       setShowLockout(true)
       setCountdown(formatCountdown(getSecondsUntil5am()))
       getTopDaily()
         .then(rows => setLeaderboard(rows))
         .catch(err => console.error('[lockout] getTopDaily failed:', err))
+      getAllTimeTop100()
+        .then(rows => setAllTimeLeaderboard(rows))
+        .catch(err => console.error('[lockout] getAllTimeTop100 failed:', err))
       return
     }
 
@@ -384,8 +391,15 @@ export default function Game() {
 
     play(finalScore > 50 ? 'timerWinEnd' : 'timerLoseEnd')
     updateGlow()
+    setLbTab('24hr')
+    setAllTimeLeaderboard([])
     setShowResults(true)
     setShowTimerBtn(false)
+
+    // Fetch all-time leaderboard in parallel
+    getAllTimeTop100()
+      .then(rows => setAllTimeLeaderboard(rows))
+      .catch(() => {})
 
     // Check leaderboard qualification
     try {
@@ -944,34 +958,44 @@ export default function Game() {
             </div>
 
             <div className="lockout-leaderboard">
-              <p className="lockout-lb-title">24hr Top 100</p>
-              {leaderboard.length === 0 ? (
-                <p className="lockout-lb-empty">No scores yet</p>
-              ) : (
-                <div className="lockout-lb-scroll">
-                  <ol className="lockout-lb-list">
-                    {leaderboard.map((entry, i) => (
-                      <li
-                        key={i}
-                        className={`lockout-lb-item${
-                          i === 0 ? ' lockout-lb-first'
-                          : i === 1 ? ' lockout-lb-second'
-                          : i === 2 ? ' lockout-lb-third'
-                          : ''
-                        }`}
-                      >
-                        <span className="lb-rank">
-                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                        </span>
-                        <span className="lb-initials">
-                          {entry.initials || '···'}
-                        </span>
-                        <span className="lb-score">{entry.score}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
+              <div className="lb-tabs">
+                <button
+                  className={`lb-tab${lbTab === '24hr' ? ' lb-tab-active' : ''}`}
+                  onClick={() => setLbTab('24hr')}
+                >24hr Top 100</button>
+                <button
+                  className={`lb-tab${lbTab === 'alltime' ? ' lb-tab-active' : ''}`}
+                  onClick={() => setLbTab('alltime')}
+                >All Time</button>
+              </div>
+              {(() => {
+                const entries = lbTab === '24hr' ? leaderboard : allTimeLeaderboard
+                return entries.length === 0 ? (
+                  <p className="lockout-lb-empty">Loading...</p>
+                ) : (
+                  <div className="lockout-lb-scroll">
+                    <ol className="lockout-lb-list">
+                      {entries.map((entry, i) => (
+                        <li
+                          key={i}
+                          className={`lockout-lb-item${
+                            i === 0 ? ' lockout-lb-first'
+                            : i === 1 ? ' lockout-lb-second'
+                            : i === 2 ? ' lockout-lb-third'
+                            : ''
+                          }`}
+                        >
+                          <span className="lb-rank">
+                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                          </span>
+                          <span className="lb-initials">{entry.initials || '···'}</span>
+                          <span className="lb-score">{entry.score}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )
+              })()}
             </div>
 
             <button className="lockout-close" onClick={() => setShowLockout(false)}>
@@ -1002,33 +1026,43 @@ export default function Game() {
             </div>
 
             <div className="results-leaderboard">
-              <p className="lockout-lb-title">24hr Top 100</p>
-              {leaderboard.length === 0 ? (
-                <p className="lockout-lb-empty">Loading...</p>
-              ) : (
-                <div className="lockout-lb-scroll">
-                  <ol className="lockout-lb-list">
-                    {leaderboard.map((entry, i) => (
-                      <li
-                        key={i}
-                        className={`lockout-lb-item${
-                          i === 0 ? ' lockout-lb-first'
-                          : i === 1 ? ' lockout-lb-second'
-                          : i === 2 ? ' lockout-lb-third'
-                          : ''}`}
-                      >
-                        <span className="lb-rank">
-                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
-                        </span>
-                        <span className="lb-initials">
-                          {entry.initials || '···'}
-                        </span>
-                        <span className="lb-score">{entry.score}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
+              <div className="lb-tabs">
+                <button
+                  className={`lb-tab${lbTab === '24hr' ? ' lb-tab-active' : ''}`}
+                  onClick={() => setLbTab('24hr')}
+                >24hr Top 100</button>
+                <button
+                  className={`lb-tab${lbTab === 'alltime' ? ' lb-tab-active' : ''}`}
+                  onClick={() => setLbTab('alltime')}
+                >All Time</button>
+              </div>
+              {(() => {
+                const entries = lbTab === '24hr' ? leaderboard : allTimeLeaderboard
+                return entries.length === 0 ? (
+                  <p className="lockout-lb-empty">Loading...</p>
+                ) : (
+                  <div className="lockout-lb-scroll">
+                    <ol className="lockout-lb-list">
+                      {entries.map((entry, i) => (
+                        <li
+                          key={i}
+                          className={`lockout-lb-item${
+                            i === 0 ? ' lockout-lb-first'
+                            : i === 1 ? ' lockout-lb-second'
+                            : i === 2 ? ' lockout-lb-third'
+                            : ''}`}
+                        >
+                          <span className="lb-rank">
+                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                          </span>
+                          <span className="lb-initials">{entry.initials || '···'}</span>
+                          <span className="lb-score">{entry.score}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="results-buttons">

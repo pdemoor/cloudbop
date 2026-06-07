@@ -78,6 +78,33 @@ export async function initialsAlreadyHasHigherScore(initials, newScore) {
   return data[0].score >= newScore;
 }
 
+export async function getAllTimeTop100() {
+  const { data, error } = await supabase
+    .from('daily_scores')
+    .select('score, initials')
+    .order('score', { ascending: false })
+    .limit(500); // fetch extra for deduplication
+
+  if (error) {
+    console.error('All time leaderboard error:', error);
+    return [];
+  }
+
+  // Deduplicate — keep highest score per initials.
+  // Anonymous entries each get a unique key so they all appear.
+  const seen = new Map();
+  for (const entry of (data ?? [])) {
+    const key = entry.initials
+      ? entry.initials.toUpperCase().trim()
+      : `anon_${seen.size}`;
+    if (!seen.has(key)) {
+      seen.set(key, entry);
+    }
+  }
+
+  return Array.from(seen.values()).slice(0, 100);
+}
+
 export async function getDailyBest() {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase

@@ -612,6 +612,48 @@ html, body, #root {
   font-family: system-ui, sans-serif;
 }
 
+/* ── Leaderboard tabs ── */
+.lb-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 0;
+}
+
+.lb-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 8px 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #bbb;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+  touch-action: manipulation;
+  font-family: system-ui, sans-serif;
+}
+
+.lb-tab:hover {
+  color: #888;
+}
+
+.lb-tab-active {
+  color: #1AADDF;
+  border-bottom: 2px solid #1AADDF;
+}
+
+/* All Time tab is more muted when inactive */
+.lb-tab:last-child:not(.lb-tab-active) {
+  color: #ccc;
+  font-size: 0.74rem;
+}
+
 /* ── Results leaderboard section ── */
 .results-leaderboard {
   border-top: 1px solid #eee;
