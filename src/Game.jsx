@@ -122,15 +122,17 @@ export default function Game() {
     window.addEventListener('resize', resizeCanvas)
     getDailyBest().then(best => setDailyBest(best))
 
-    // Show background pulse when it's past 5am and player can still play today
-    const now5 = new Date()
-    const todayAt5am = new Date(
-      now5.getFullYear(), now5.getMonth(), now5.getDate(),
-      5, 0, 0, 0
-    )
-    const isPast5am = now5 >= todayAt5am
-    const canPlay   = !hasPlayedToday()
-    setShowCompPulse(isPast5am && canPlay)
+    // Show background pulse only if player has NOT played today AND it's past 5am
+    if (hasPlayedToday()) {
+      setShowCompPulse(false)
+    } else {
+      const now5 = new Date()
+      const todayAt5am = new Date(
+        now5.getFullYear(), now5.getMonth(), now5.getDate(),
+        5, 0, 0, 0
+      )
+      setShowCompPulse(now5 >= todayAt5am)
+    }
 
     localStorage.removeItem('cloudbop_nudge_dismissed')
 
@@ -342,6 +344,7 @@ export default function Game() {
         finalScore > lb[lb.length - 1].score
 
       if (qualifies) {
+        setShowCompPulse(false)
         setShowInitialsEntry(true)
       } else {
         submitDailyScore(finalScore)
@@ -565,6 +568,8 @@ export default function Game() {
       }
     }
 
+    // NOTE: animals spawn during both free play AND
+    // Daily Comp timer mode — do not gate on timer state
     if (!t.ended) {
       if (now - s.lastAnimalSpawn > s.animalInterval) {
         s.animals.push(spawnAnimal(w, h, TOP_MARGIN, BOTTOM_MARGIN))
@@ -734,8 +739,9 @@ export default function Game() {
         ctx.shadowColor = 'rgba(0,0,0,0.4)'
         ctx.shadowBlur = 6
         ctx.textAlign = 'center'
-        ctx.textBaseline = 'alphabetic'
-        ctx.fillText(`${t.timeRemaining}s`, w / 2, 36)
+        ctx.textBaseline = 'top'
+        // Draw below the game logo (logo spans y=12–60 in viewport)
+        ctx.fillText(`${Math.ceil(t.timeRemaining)}s`, w / 2, 64)
         ctx.restore()
       }
     }
