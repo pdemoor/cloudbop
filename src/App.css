@@ -615,3 +615,165 @@ html, body, #root {
   touch-action: manipulation;
   font-family: system-ui, sans-serif;
 }
+
+/* ── Daily Comp button — yellow glow pulse ── */
+@keyframes btn-glow {
+  0%   { box-shadow: 0 0 8px 2px rgba(255, 220, 0, 0.6),
+                     0 2px 8px rgba(0,0,0,0.15); }
+  50%  { box-shadow: 0 0 18px 6px rgba(255, 220, 0, 0.95),
+                     0 2px 8px rgba(0,0,0,0.15); }
+  100% { box-shadow: 0 0 8px 2px rgba(255, 220, 0, 0.6),
+                     0 2px 8px rgba(0,0,0,0.15); }
+}
+
+#daily-comp-btn {
+  animation: btn-glow 2.4s ease-in-out infinite;
+}
+
+/* ── Background radial pulse behind Daily Comp ── */
+@keyframes comp-pulse {
+  0%   { transform: scale(0.8); opacity: 0.7; }
+  70%  { transform: scale(2.2); opacity: 0.0; }
+  100% { transform: scale(0.8); opacity: 0.0; }
+}
+
+#comp-pulse {
+  position: fixed;
+  top: 16px;
+  left: 12px;
+  width: 130px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 220, 0, 0.45);
+  animation: comp-pulse 2.0s ease-out infinite;
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* ── Trophy icon sparkle ── */
+@keyframes trophy-sparkle {
+  0%   { filter: brightness(1) drop-shadow(0 0 0px gold); }
+  40%  { filter: brightness(1.5) drop-shadow(0 0 6px gold)
+                 drop-shadow(0 0 12px rgba(255,200,0,0.6)); }
+  60%  { filter: brightness(1.6) drop-shadow(0 0 8px gold)
+                 drop-shadow(0 0 16px rgba(255,200,0,0.5)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0px gold); }
+}
+
+.trophy-icon {
+  display: inline-block;
+  animation: trophy-sparkle 2.8s ease-in-out infinite;
+  animation-delay: 1.0s;
+}
+
+/* ── Info button — bottom-left, mirrors mute button ── */
+#info-btn {
+  position: fixed;
+  bottom: 32px;
+  left: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #1AADDF;
+  border: none;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+  cursor: pointer;
+  touch-action: manipulation;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+#info-btn:active {
+  transform: scale(0.92);
+}
+
+/* ── How to Play modal ── */
+#info-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 173, 223, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  backdrop-filter: blur(4px);
+  padding: 16px;
+}
+
+.info-inner {
+  background: white;
+  border-radius: 24px;
+  padding: 28px 28px 24px;
+  text-align: left;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+  max-width: 340px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-family: system-ui, sans-serif;
+}
+
+.info-inner h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1AADDF;
+  text-align: center;
+  margin: 0 0 20px;
+}
+
+.info-section {
+  border-top: 1px solid #f0f0f0;
+  padding: 14px 0;
+}
+
+.info-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.info-section h3 {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
+}
+
+.info-section p {
+  font-size: 0.92rem;
+  color: #333;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.info-homescreen {
+  background: #f8fbff;
+  border-radius: 12px;
+  padding: 14px 16px !important;
+  margin-top: 4px;
+  border-top: none !important;
+}
+
+.info-homescreen h3 {
+  color: #1AADDF;
+}
+
+.info-close {
+  background: #1AADDF;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 32px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  width: 100%;
+  margin-top: 20px;
+  font-family: system-ui, sans-serif;
+}

@@ -58,6 +58,12 @@ export default function Game() {
   const [flashAddBtn, setFlashAddBtn]               = useState(false)
   const flashAddBtnRef                              = useRef(false)
 
+  // Info modal
+  const [showInfoModal, setShowInfoModal]           = useState(false)
+
+  // Background pulse behind Daily Comp button
+  const [showCompPulse, setShowCompPulse]           = useState(false)
+
   // ── Game state ref ────────────────────────────────────────────────────────
   const stateRef = useRef({
     clouds: [],
@@ -117,6 +123,16 @@ export default function Game() {
 
     window.addEventListener('resize', resizeCanvas)
     getDailyBest().then(best => setDailyBest(best))
+
+    // Show background pulse when it's past 5am and player can still play today
+    const now5 = new Date()
+    const todayAt5am = new Date(
+      now5.getFullYear(), now5.getMonth(), now5.getDate(),
+      5, 0, 0, 0
+    )
+    const isPast5am = now5 >= todayAt5am
+    const canPlay   = !hasPlayedToday()
+    setShowCompPulse(isPast5am && canPlay)
 
     const isStandalone =
       window.navigator.standalone === true ||
@@ -266,6 +282,7 @@ export default function Game() {
 
   // ── Timer controls ────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
+    setShowCompPulse(false)
     if (hasPlayedToday()) {
       const savedScore = parseInt(
         localStorage.getItem('cloudbop_last_comp_score') || '0'
@@ -761,6 +778,28 @@ export default function Game() {
         onPointerCancel={onPointerUp}
       />
 
+      {/* Info button — bottom-left */}
+      <button
+        id="info-btn"
+        onClick={() => setShowInfoModal(true)}
+        aria-label="How to play"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="white"
+          width="22"
+          height="22"
+        >
+          <circle cx="12" cy="12" r="10" fill="none"
+            stroke="white" strokeWidth="2"/>
+          <line x1="12" y1="11" x2="12" y2="17"
+            stroke="white" strokeWidth="2.5"
+            strokeLinecap="round"/>
+          <circle cx="12" cy="7.5" r="1.4" fill="white"/>
+        </svg>
+      </button>
+
       {/* Mute button — bottom-right */}
       <button
         id="mute-btn"
@@ -791,10 +830,15 @@ export default function Game() {
         </svg>
       </button>
 
+      {/* Daily Comp pulse — behind the button (z-index 9) */}
+      {showTimerBtn && showCompPulse && (
+        <div id="comp-pulse" />
+      )}
+
       {/* Daily Comp button */}
       {showTimerBtn && (
         <button id="daily-comp-btn" className="timer-btn" onClick={startTimer}>
-          🏆 Daily Comp
+          <span className="trophy-icon">🏆</span>{' '}Daily Comp
         </button>
       )}
 
@@ -904,6 +948,70 @@ export default function Game() {
                 Play Again
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Info / How to Play modal */}
+      {showInfoModal && (
+        <div id="info-overlay" onClick={() => setShowInfoModal(false)}>
+          <div className="info-inner" onClick={e => e.stopPropagation()}>
+            <h2>☁️ How to Play</h2>
+
+            <div className="info-section">
+              <h3>Tapping clouds</h3>
+              <p>
+                <strong>Tap lightly</strong> — cloud poofs away softly.<br/>
+                <strong>Swipe fast</strong> — cloud explodes with a bang!<br/>
+                Each tap scores <strong>1 point</strong> (small clouds = 2 pts).
+              </p>
+            </div>
+
+            <div className="info-section">
+              <h3>Flying animals</h3>
+              <p>
+                Every 10 seconds a creature flies across.<br/>
+                <strong>Tap it</strong> for a bonus point.<br/>
+                🐉 🦄 🧚 are <strong>rare</strong> — worth 3 points!
+              </p>
+            </div>
+
+            <div className="info-section">
+              <h3>Combos &amp; weather</h3>
+              <p>
+                Tap clouds quickly to build a combo.<br/>
+                <strong>x10</strong> — light rain appears 🌧️<br/>
+                <strong>x50</strong> — lightning strikes 🌩️<br/>
+                <strong>x100</strong> — full storm ⛈️
+              </p>
+            </div>
+
+            <div className="info-section">
+              <h3>🏆 Daily Comp</h3>
+              <p>
+                One 60-second timed round per day.<br/>
+                Resets at <strong>5am</strong> each morning.<br/>
+                Enter your initials if you make the top 100.<br/>
+                See how you rank on the <strong>24hr leaderboard</strong>.
+              </p>
+            </div>
+
+            <div className="info-section info-homescreen">
+              <h3>📱 Add to Home Screen</h3>
+              <p>
+                <strong>iPhone:</strong> tap the Share button in Safari
+                then <em>"Add to Home Screen"</em> for the best experience.<br/>
+                <strong>Android:</strong> tap the menu (⋮) then{' '}
+                <em>"Add to Home Screen"</em>.
+              </p>
+            </div>
+
+            <button
+              className="info-close"
+              onClick={() => setShowInfoModal(false)}
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}
