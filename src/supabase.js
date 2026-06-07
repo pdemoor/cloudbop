@@ -21,11 +21,15 @@ export function getPlayerId() {
 export async function submitDailyScore(score, initials = null) {
   const player_id = getPlayerId();
   const payload = { player_id, score };
-  if (initials) payload.initials = initials.toUpperCase().slice(0, 3);
-  const { error } = await supabase
+  if (initials && initials.trim().length > 0) {
+    payload.initials = initials.toUpperCase().slice(0, 3);
+  }
+  const { data, error } = await supabase
     .from('daily_scores')
-    .insert(payload);
+    .insert(payload)
+    .select();
   if (error) console.error('Score submit error:', error);
+  return data;
 }
 
 export async function getTopDaily() {
